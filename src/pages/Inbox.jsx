@@ -100,7 +100,7 @@ const Inbox = () => {
     if (businessData && businessData.voodoo_api_key) {
         try {
             const destPhone = activeConvo.phone.replace(/[^0-9]/g, '');
-            const voodooRes = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.voodoosms.com/sendsms'), {
+            const voodooRes = await fetch('/api/voodoo/sendsms', {
                 method: 'POST',
                 headers: { 
                     'Authorization': `Bearer ${businessData.voodoo_api_key}`,
@@ -163,7 +163,7 @@ const Inbox = () => {
 
     try {
         const destPhone = newChatPhone.replace(/[^0-9]/g, '');
-        const voodooRes = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.voodoosms.com/sendsms'), {
+        const voodooRes = await fetch('/api/voodoo/sendsms', {
             method: 'POST',
             headers: { 
                 'Authorization': `Bearer ${businessData.voodoo_api_key}`,
