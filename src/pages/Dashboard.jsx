@@ -38,8 +38,8 @@ const Dashboard = () => {
       
       if (businessData && businessData.voodoo_api_key) {
           try {
-             // Dispatch direct HTTPS protocol request to external server
-             const voodooRes = await fetch('https://api.voodoosms.com/credits', {
+             // Dispatch direct HTTPS protocol request to external server through a CORS proxy
+             const voodooRes = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.voodoosms.com/credits'), {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${businessData.voodoo_api_key}` }
              });
