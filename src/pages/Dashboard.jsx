@@ -44,7 +44,13 @@ const Dashboard = () => {
                 headers: { 'Authorization': `Bearer ${businessData.voodoo_api_key}` }
              });
              const voodooJson = await voodooRes.json();
-             setVoodooCredits(voodooJson.credit || 'Invalid Token');
+             
+             // Voodoo uses "amount" instead of "credit" in their JSON response
+             if (voodooJson.amount !== undefined) {
+                 setVoodooCredits(voodooJson.amount);
+             } else {
+                 setVoodooCredits('Invalid Token');
+             }
           } catch (apiErr) {
              console.error("Voodoo API Fetch Blocked:", apiErr);
              setVoodooCredits('CORS Blocked');
