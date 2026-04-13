@@ -92,11 +92,46 @@ const Inbox = () => {
     setComposerText('');
 
     const { data: { session } } = await supabase.auth.getSession();
+    const bid = session.user.id;
     
-    // Insert into Supabase
+    // FETCH LIVE KEY CONFIG FOR SENDING
+    const { data: businessData } = await supabase.from('businesses').select('voodoo_api_key, voodoo_sender_id').eq('id', bid).single();
+    
+    if (businessData && businessData.voodoo_api_key) {
+        try {
+            const destPhone = activeConvo.phone.replace(/[^0-9]/g, '');
+            const voodooRes = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.voodoosms.com/sendsms'), {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${businessData.voodoo_api_key}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    to: destPhone,
+                    from: businessData.voodoo_sender_id || 'Reviewzly',
+                    msg: textToSend
+                })
+            });
+            
+            if (!voodooRes.ok) {
+                console.error("Voodoo API failed to send SMS.");
+                alert("Failed to send message via Voodoo API. Please verify your token and format.");
+                return;
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error connecting to dispatch server via CORS Proxy.");
+            return;
+        }
+    } else {
+        alert("Integrations Error: You must link a Voodoo API key in Platform Settings to broadcast messages.");
+        return;
+    }
+    
+    // Insert into Supabase if dispatch succeeded natively
     const { error } = await supabase.from('communications').insert([{
       client_id: activeId,
-      business_id: session.user.id,
+      business_id: bid,
       type: 'HUMAN_CHAT',
       text: textToSend,
       is_outbound: true
@@ -117,6 +152,38 @@ const Inbox = () => {
 
     const { data: { session } } = await supabase.auth.getSession();
     const bid = session.user.id;
+
+    // FETCH LIVE KEY CONFIG FOR INITIAL DISPATCH
+    const { data: businessData } = await supabase.from('businesses').select('voodoo_api_key, voodoo_sender_id').eq('id', bid).single();
+    
+    if (!businessData || !businessData.voodoo_api_key) {
+       alert("Integrations Error: You must link a Voodoo API key in Platform Settings to broadcast messages.");
+       return;
+    }
+
+    try {
+        const destPhone = newChatPhone.replace(/[^0-9]/g, '');
+        const voodooRes = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.voodoosms.com/sendsms'), {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${businessData.voodoo_api_key}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                to: destPhone,
+                from: businessData.voodoo_sender_id || 'Reviewzly',
+                msg: newChatMessage
+            })
+        });
+        
+        if (!voodooRes.ok) {
+            alert("Failed to send message via Voodoo API. Ensure you are using proper country codes.");
+            return;
+        }
+    } catch (err) {
+        alert("Error connecting to Voodoo dispatch server over CORS.");
+        return;
+    }
 
     // 1. Create Client
     const { data: clientData, error: clientError } = await supabase.from('clients').insert([{
