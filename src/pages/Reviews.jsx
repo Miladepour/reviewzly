@@ -1,193 +1,150 @@
-import React, { useState } from 'react';
-
-// Extended mock reviews
-const INITIAL_REVIEWS = [
-  { id: 101, name: 'James Wilson', date: '2026-04-13T16:00:00Z', rating: 5, source: 'Google Redirect', text: 'Absolutely amazing service! The staff was incredibly welcoming and everything was pristine.' },
-  { id: 102, name: 'Megan Clark', date: '2026-04-13T13:00:00Z', rating: 3, source: 'Internal Only', text: 'The experience was okay but the waiting times were too long today. Needs better scheduling.' },
-  { id: 103, name: 'Alex Thompson', date: '2026-04-12T10:00:00Z', rating: 5, source: 'Google Redirect', text: 'Very highly recommended!' },
-  { id: 104, name: 'Diana Prince', date: '2026-04-11T09:30:00Z', rating: 4, source: 'Internal Only', text: 'Great treatment but the parking situation is a bit tough.' },
-  { id: 105, name: 'Bruce Wayne', date: '2026-04-10T14:20:00Z', rating: 5, source: 'Google Redirect', text: 'Efficient and professional. Exceeded expectations.' },
-  { id: 106, name: 'Clark Kent', date: '2026-04-09T11:15:00Z', rating: 1, source: 'Internal Only', text: 'Completely unacceptable wait times. I left before being seen.' },
-  { id: 107, name: 'Barry Allen', date: '2026-04-09T08:45:00Z', rating: 5, source: 'Google Redirect', text: 'Fastest service I have ever received.' }
-];
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 const Reviews = () => {
-  const [reviews] = useState(INITIAL_REVIEWS);
   const [ratingFilter, setRatingFilter] = useState('All');
-  const [dateSort, setDateSort] = useState('newest');
+  
+  const [reviews, setReviews] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        
+        // Fetch all clients that have actually yielded a valid rating
+        const { data } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('business_id', session.user.id)
+          .not('rating_status', 'is', null)
+          .neq('rating_status', 'Pending')
+          .order('created_at', { ascending: false });
+
+        if (data) {
+           const mappedReviews = data.map(c => {
+               // Extract numeric rating from the string (e.g. "5-Star Google")
+               const ratingNum = parseInt(c.rating_status.split('-')[0]) || 0;
+               return {
+                   id: c.id,
+                   name: c.name,
+                   date: c.created_at,
+                   rating: ratingNum,
+                   source: c.rating_status.includes('Google') ? 'Google Redirect' : 'Internal Caught'
+               }
+           });
+           setReviews(mappedReviews);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchReviews();
+  }, []);
 
   // Distribution calculations
   const totalReviews = reviews.length;
-  const ratingCounts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-  reviews.forEach(r => ratingCounts[r.rating]++);
-  const averageRating = (reviews.reduce((acc, r) => acc + r.rating, 0) / totalReviews).toFixed(1);
-
-  // Filter and Sort
-  let displayedReviews = [...reviews];
+  const avgRating = totalReviews > 0 ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews).toFixed(1) : '0.0';
   
-  if (ratingFilter !== 'All') {
-    displayedReviews = displayedReviews.filter(r => r.rating === parseInt(ratingFilter));
-  }
+  const googleTotal = reviews.filter(r => r.source === 'Google Redirect').length;
+  const internalTotal = totalReviews - googleTotal;
 
-  displayedReviews.sort((a, b) => {
-    const dateA = new Date(a.date);
-    const dateB = new Date(b.date);
-    return dateSort === 'newest' ? dateB - dateA : dateA - dateB;
+  const filteredReviews = reviews.filter(r => {
+    if (ratingFilter === 'All') return true;
+    if (ratingFilter === '5-Star') return r.rating === 5;
+    if (ratingFilter === '1-4 Star') return r.rating < 5;
+    return true;
   });
 
-  const renderStars = (rating) => {
-    return '★'.repeat(rating) + '☆'.repeat(5 - rating);
-  };
-
-  const getRelativeTime = (dateString) => {
-    const msPerMinute = 60 * 1000;
-    const msPerHour = msPerMinute * 60;
-    const msPerDay = msPerHour * 24;
-    const elapsed = new Date() - new Date(dateString);
-
-    if (elapsed < msPerHour) return Math.round(elapsed/msPerMinute) + ' mins ago';
-    else if (elapsed < msPerDay ) return Math.round(elapsed/msPerHour ) + ' hours ago';
-    else return Math.round(elapsed/msPerDay) + ' days ago';   
-  };
-
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       
-      {/* Header and Graphs */}
       <div>
-        <h1 className="text-display-xl mb-6">Review Analytics</h1>
-        
-        <div className="flex flex-col md-flex-row gap-6">
-          {/* Distribution Graph */}
-          <div className="card flex-1">
-            <h3 className="text-title-md mb-6">Rating Distribution</h3>
-            <div className="flex flex-col gap-3">
-              {[5, 4, 3, 2, 1].map(stars => {
-                const count = ratingCounts[stars];
-                const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
-                const isPositive = stars === 5;
-                return (
-                  <div key={stars} className="flex items-center gap-4">
-                    <span className="text-label-sm" style={{ width: '40px', fontSize: '0.75rem' }}>{stars}★</span>
-                    <div className="progress-bar-bg" style={{ flex: 1, height: '10px', backgroundColor: 'var(--surface-container-low)' }}>
-                      <div 
-                        className="progress-bar-fill" 
-                        style={{ 
-                          width: `${percentage}%`, 
-                          backgroundColor: isPositive ? 'var(--primary)' : '#ff8c42',
-                          transition: 'width 1s ease'
-                        }}
-                      ></div>
-                    </div>
-                    <span className="text-label-sm" style={{ width: '30px', textAlign: 'right' }}>{count}</span>
-                  </div>
-                );
-              })}
+        <h1 className="text-display-xl mb-1">Reviews Analytics</h1>
+        <p className="text-body" style={{ fontSize: '1.05rem', marginTop: '0.25rem' }}>
+          Monitor your captured sentiment and Google conversion metrics.
+        </p>
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="flex flex-col md-flex-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)' }}>
+          <div style={{ padding: '2rem', borderRight: '1px solid var(--outline-variant)' }}>
+            <p className="val-sub">Total Captures</p>
+            <h2 className="text-display-xl mt-2" style={{ fontSize: '2.5rem' }}>{totalReviews}</h2>
+          </div>
+          <div style={{ padding: '2rem', borderRight: '1px solid var(--outline-variant)' }}>
+            <p className="val-sub">Avg Star Rating</p>
+            <div className="flex items-center gap-4 mt-2">
+              <h2 className="text-display-xl" style={{ fontSize: '2.5rem' }}>{avgRating}</h2>
             </div>
           </div>
-
-          {/* Aggregate Snapshot */}
-          <div className="card" style={{ flex: '0 1 350px', backgroundColor: 'var(--surface-container-low)' }}>
-            <h3 className="text-title-md mb-4">Overall Score</h3>
-            <div className="flex flex-col justify-center items-center h-100 mt-4">
-              <h2 className="text-display-xl" style={{ fontSize: '4rem', lineHeight: 1 }}>{averageRating}</h2>
-              <div className="text-title-lg mb-2" style={{ color: 'var(--primary)', letterSpacing: '4px' }}>
-                {renderStars(Math.round(averageRating))}
-              </div>
-              <p className="text-body text-center" style={{ fontSize: '0.85rem' }}>
-                Based on {totalReviews} lifetime reviews.<br/>Outstanding sentiment.
-              </p>
+          <div style={{ padding: '2rem', backgroundColor: '#F9FAF9' }}>
+            <p className="val-sub">Conversion Split</p>
+            <div className="flex flex-col gap-2 mt-2">
+               <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>• {googleTotal} Google Public Redirects</div>
+               <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#7a3a00' }}>• {internalTotal} Private Internal Saves</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Control Bar */}
-      <div className="card" style={{ padding: '1rem 1.5rem' }}>
-        <div className="flex flex-col md-flex-row justify-between items-center gap-4">
-          <h3 className="text-title-md">All Feedbacks ({displayedReviews.length})</h3>
-          <div className="flex gap-4 w-100 md-w-auto" style={{ flexWrap: 'wrap' }}>
-            <div className="flex items-center gap-2">
-              <label className="text-label-sm">Rating:</label>
-              <select 
-                className="search-pill"
-                style={{ borderRadius: '0.5rem', padding: '0.5rem 1rem', width: 'auto', border: '1px solid var(--outline-variant)' }}
-                value={ratingFilter}
-                onChange={(e) => setRatingFilter(e.target.value)}
+      <div className="card" style={{ padding: 0 }}>
+        <div className="flex justify-between items-center" style={{ padding: '1.5rem', borderBottom: '1px solid var(--outline-variant)' }}>
+          <div className="flex gap-2">
+            {['All', '5-Star', '1-4 Star'].map(filter => (
+              <button 
+                key={filter}
+                onClick={() => setRatingFilter(filter)}
+                style={{
+                  padding: '0.5rem 1rem', borderRadius: '2rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                  backgroundColor: ratingFilter === filter ? 'var(--primary)' : 'transparent',
+                  color: ratingFilter === filter ? 'white' : 'var(--on-surface-variant)',
+                  border: ratingFilter === filter ? '1px solid var(--primary)' : '1px solid var(--outline-variant)',
+                }}
               >
-                <option value="All">All Ratings</option>
-                <option value="5">5 Stars Only</option>
-                <option value="4">4 Stars</option>
-                <option value="3">3 Stars</option>
-                <option value="2">2 Stars</option>
-                <option value="1">1 Star</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-label-sm">Sort:</label>
-              <select 
-                className="search-pill"
-                style={{ borderRadius: '0.5rem', padding: '0.5rem 1rem', width: 'auto', border: '1px solid var(--outline-variant)' }}
-                value={dateSort}
-                onChange={(e) => setDateSort(e.target.value)}
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: '2rem' }}>
+          <div className="flex flex-col gap-4">
+            {isLoading ? <div>Loading feed from database...</div> : 
+             filteredReviews.length > 0 ? filteredReviews.map(review => (
+              <div key={review.id} style={{ 
+                  padding: '1.25rem', 
+                  borderRadius: '1rem', 
+                  border: review.source === 'Google Redirect' ? '1px solid var(--outline-variant)' : '1px solid #ffdcc8',
+                  backgroundColor: review.source === 'Google Redirect' ? 'white' : '#fff9f5' 
+                }}
               >
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-              </select>
-            </div>
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="text-title-md">{review.name}</h4>
+                    <p className="text-label-sm mt-1">{new Date(review.date).toLocaleString()}</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-title-lg" style={{ color: review.source === 'Google Redirect' ? 'var(--primary)' : '#ff8c42', letterSpacing: '2px' }}>
+                      {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                    </span>
+                    <span style={{ 
+                      fontSize: '0.65rem', fontWeight: 700, marginTop: '0.25rem', padding: '0.2rem 0.5rem', borderRadius: '0.5rem', textTransform: 'uppercase',
+                      backgroundColor: review.source === 'Google Redirect' ? '#E8F5E9' : '#ffdcc8',
+                      color: review.source === 'Google Redirect' ? 'var(--primary)' : '#7a3a00'
+                    }}>
+                      {review.source}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )) : <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--on-surface-variant)' }}>No feedback matching criteria yet. Check back when campaigns are live!</div>}
           </div>
         </div>
       </div>
-
-      {/* Review Feed */}
-      <div className="flex flex-col gap-4">
-        {displayedReviews.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-             <p className="text-label-sm">No reviews match your filter criteria.</p>
-          </div>
-        ) : (
-          displayedReviews.map(review => (
-            <div 
-              key={review.id} 
-              className="card" 
-              style={{ 
-                padding: '1.5rem', 
-                borderLeft: review.rating === 5 ? '4px solid var(--primary)' : '4px solid #ff8c42' 
-              }}
-            >
-              <div className="flex flex-col md-flex-row justify-between items-start md-items-center mb-3 gap-2">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h4 className="text-title-lg" style={{ fontSize: '1.15rem' }}>{review.name}</h4>
-                    {review.rating === 5 ? (
-                       <span className="tag-light-green" style={{ fontSize: '0.6rem' }}>{review.source}</span>
-                    ) : (
-                       <span style={{ fontSize: '0.6rem', fontWeight: 700, backgroundColor: '#ffdcc8', color: '#7a3a00', padding: '0.2rem 0.5rem', borderRadius: '0.5rem', textTransform: 'uppercase' }}>{review.source}</span>
-                    )}
-                  </div>
-                  <p className="text-label-sm" style={{ marginTop: '0.25rem', opacity: 0.7 }}>
-                     {new Date(review.date).toLocaleDateString()} • {getRelativeTime(review.date)}
-                  </p>
-                </div>
-                <div 
-                  className="text-title-md" 
-                  style={{ 
-                    color: review.rating === 5 ? 'var(--primary)' : '#ff8c42',
-                    letterSpacing: '2px',
-                    fontSize: '1.25rem'
-                  }}
-                >
-                  {renderStars(review.rating)}
-                </div>
-              </div>
-              <p className="text-body" style={{ fontSize: '0.95rem' }}>
-                "{review.text}"
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-
     </div>
   );
 };

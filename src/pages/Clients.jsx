@@ -1,374 +1,136 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 const Clients = () => {
-  // State for Search and Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  
+  const [clients, setClients] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // State for clients data
-  const [clients, setClients] = useState([
-    { 
-      id: 1, 
-      name: 'Alice Freeman', 
-      phone: '+44 123 456 7890', 
-      email: 'alice@example.com', 
-      dob: '1990-05-15', 
-      status: 'Review Received', 
-      date: '2026-04-10',
-      logs: [
-        { date: '4/10/2026, 10:00 AM', message: 'Added to system' },
-        { date: '4/10/2026, 10:01 AM', message: 'Review Request SMS Sent' },
-        { date: '4/10/2026, 2:30 PM', message: 'Left a 5-star Google Review' }
-      ]
-    },
-    { 
-      id: 2, 
-      name: 'Mark Johnson', 
-      phone: '+44 987 654 3210', 
-      email: 'mark@example.com', 
-      dob: 'Not provided', 
-      status: 'Review Received', 
-      date: '2026-04-11',
-      logs: [
-        { date: '4/11/2026, 09:15 AM', message: 'Added to system' },
-        { date: '4/11/2026, 09:16 AM', message: 'Review Request SMS Sent' },
-        { date: '4/11/2026, 1:45 PM', message: 'Left a 3-star Internal Feedback' }
-      ]
-    },
-    { 
-      id: 3, 
-      name: 'Emma Davies', 
-      phone: '+44 111 222 3333', 
-      email: 'emma@example.com', 
-      dob: '1988-11-20', 
-      status: 'Invited', 
-      date: '2026-04-12',
-      logs: [
-        { date: '4/12/2026, 11:00 AM', message: 'Added to system' },
-        { date: '4/12/2026, 11:01 AM', message: 'Review Request SMS Sent' }
-      ]
-    },
-  ]);
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        
+        const { data } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('business_id', session.user.id)
+          .order('created_at', { ascending: false });
 
-  // State for Add Modal
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newClientData, setNewClientData] = useState({ name: '', phone: '', email: '', dob: '' });
-
-  // State for Edit Modal
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState(null);
-  const [activeProfileTab, setActiveProfileTab] = useState('details');
-
-  const openAddModal = () => setIsAddModalOpen(true);
-  const closeAddModal = () => {
-    setIsAddModalOpen(false);
-    setNewClientData({ name: '', phone: '', email: '', dob: '' });
-  };
-
-  const handleAddClientSubmit = (e) => {
-    e.preventDefault();
-    const newClientObj = {
-      id: Date.now(),
-      name: newClientData.name,
-      phone: newClientData.phone,
-      email: newClientData.email || 'No email provided',
-      dob: newClientData.dob || 'Not provided',
-      status: 'Added Manually',
-      date: new Date().toISOString().split('T')[0],
-      logs: [
-        { date: new Date().toLocaleString(), message: 'Added manually via "+ Add Client" action.' }
-      ]
+        if (data) setClients(data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    setClients(prev => [newClientObj, ...prev]);
-    closeAddModal();
-  };
+    fetchClients();
+  }, []);
 
-  const openEditModal = (client) => {
-    setEditingClient(client);
-    setActiveProfileTab('details');
-    setIsEditModalOpen(true);
-  };
-
-  const closeEditModal = () => {
-    setEditingClient(null);
-    setIsEditModalOpen(false);
-  };
-
-  const handleUpdateClient = (e) => {
-    e.preventDefault();
-    setClients(clients.map(c => c.id === editingClient.id ? editingClient : c));
-    closeEditModal();
-  };
-
-  const handleDeleteClient = (id) => {
-    if (window.confirm('Are you sure you want to delete this client?')) {
-      setClients(clients.filter(c => c.id !== id));
-    }
-  };
-
-  const handleUnsubscribe = (id) => {
-    if (window.confirm('Are you sure you want to unsubscribe this client? They will stop receiving SMS.')) {
-      setClients(clients.map(c => {
-        if (c.id === id) {
-          return { 
-            ...c, 
-            status: 'Unsubscribed', 
-            logs: [...(c.logs || []), { date: new Date().toLocaleString(), message: 'Manually Unsubscribed' }] 
-          };
-        }
-        return c;
-      }));
-    }
-  };
-
-  const filteredClients = clients.filter(c => {
-    const matchSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone.includes(searchQuery);
-    const matchFilter = statusFilter === 'All' || c.status === statusFilter;
-    return matchSearch && matchFilter;
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          client.phone.includes(searchQuery);
+    
+    // Status Filter parsing
+    if (statusFilter === 'All') return matchesSearch;
+    if (statusFilter === 'Review Received') return matchesSearch && client.rating_status && client.rating_status !== 'Pending';
+    if (statusFilter === 'Pending') return matchesSearch && (!client.rating_status || client.rating_status === 'Pending');
+    
+    return matchesSearch;
   });
 
   return (
-    <>
-      <div className="flex flex-col gap-6">
-        <header className="flex flex-col gap-4 mb-4">
-          <div className="flex justify-between items-center w-100 flex-wrap gap-4">
-            <h1 className="text-display-xl">Clients Directory</h1>
-            <button className="btn-primary" onClick={openAddModal}>+ Add Client</button>
-          </div>
-          
-          <div className="flex gap-3 items-center flex-wrap">
+    <div className="flex flex-col gap-6" style={{ height: '100%', minHeight: '80vh' }}>
+      
+      <div className="flex flex-col md-flex-row justify-between items-start md-items-center gap-4">
+        <div>
+          <h1 className="text-display-xl mb-1">Clients Directory</h1>
+          <p className="text-body" style={{ fontSize: '1.05rem', marginTop: '0.25rem' }}>
+            Live CRM connection established.
+          </p>
+        </div>
+        <button className="btn-primary" style={{ padding: '0.75rem 1.5rem' }}>
+          + Import CSV
+        </button>
+      </div>
+
+      <div className="card" style={{ flex: 1, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        
+        <div className="flex flex-col md-flex-row justify-between gap-4" style={{ padding: '1.5rem', borderBottom: '1px solid var(--outline-variant)', backgroundColor: 'var(--surface-container-lowest)' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+            <svg style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--on-surface-variant)' }} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             <input 
               type="text" 
-              className="search-pill" 
-              style={{ borderRadius: '0.75rem', padding: '0.75rem 1rem', width: '100%', maxWidth: '300px' }}
               placeholder="Search by name or phone..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: '100%', padding: '0.85rem 1rem 0.85rem 2.5rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', fontSize: '0.95rem' }}
             />
-            <select 
-              className="search-pill"
-              style={{ borderRadius: '0.75rem', padding: '0.75rem 1rem', width: 'auto', border: 'none', outline: 'none' }}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="All">All Statuses</option>
-              <option value="Invited">Invited</option>
-              <option value="Review Received">Review Received</option>
-              <option value="Added Manually">Added Manually</option>
-              <option value="Unsubscribed">Unsubscribed</option>
-            </select>
           </div>
-        </header>
 
-        <div className="card">
-          <div className="flex flex-col gap-4">
-            {filteredClients.length === 0 ? (
-              <p className="text-label-sm">No clients found matching your search criteria.</p>
-            ) : (
-              filteredClients.map(client => (
-                <div 
-                  key={client.id} 
-                  className="flex flex-col md-flex-row justify-between items-start md-items-center gap-4 bg-soft"
-                  style={{
-                    padding: '1.25rem', 
-                    borderRadius: '1rem',
-                    transition: 'background-color 0.2s ease',
-                    flexWrap: 'wrap'
-                  }}
-                >
-                  <div style={{ flex: '1', minWidth: '200px' }}>
-                    <h4 className="text-title-lg mb-1">{client.name}</h4>
-                    <p className="text-body" style={{fontSize: '0.85rem'}}>{client.phone} • {client.email}</p>
-                    {client.dob && client.dob !== 'Not provided' && (
-                      <p className="text-body" style={{ opacity: 0.8, fontSize: '0.85rem' }}>DOB: {client.dob}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <span className="text-label-sm">{client.date}</span>
-                    {
-                      client.status === 'Invited' ? (
-                        <span className="tag-light-green" style={{ backgroundColor: 'var(--outline-variant)' }}>{client.status}</span>
-                      ) : client.status === 'Unsubscribed' ? (
-                        <span className="tag-light-green" style={{ backgroundColor: '#ffdcc8', color: '#7a3a00' }}>{client.status}</span>
-                      ) : client.status === 'Added Manually' ? (
-                        <span className="tag-light-green">{client.status}</span>
-                      ) : (
-                        <span className="tag-light-green" style={{ backgroundColor: 'var(--primary)', color: 'white' }}>{client.status}</span>
-                      )
-                    }
-                    
-                    <div className="flex gap-2">
-                       <button 
-                        style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', backgroundColor: '#ffdcc8', color: '#7a3a00', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }} 
-                        onClick={() => handleUnsubscribe(client.id)}
-                        disabled={client.status === 'Unsubscribed'}
-                      >
-                        Unsubscribe
-                      </button>
-                      <button 
-                        style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', backgroundColor: 'var(--surface-container-lowest)', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }} 
-                        onClick={() => openEditModal(client)}
-                      >
-                        Profile
-                      </button>
-                      <button 
-                        style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', backgroundColor: 'transparent', color: 'red', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }} 
-                        onClick={() => handleDeleteClient(client.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+          <div className="flex gap-2">
+            {['All', 'Pending', 'Review Received'].map(status => (
+              <button 
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                style={{
+                  padding: '0.5rem 1rem', borderRadius: '2rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                  backgroundColor: statusFilter === status ? 'var(--primary)' : 'transparent',
+                  color: statusFilter === status ? 'white' : 'var(--on-surface-variant)',
+                  border: statusFilter === status ? '1px solid var(--primary)' : '1px solid var(--outline-variant)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {status}
+              </button>
+            ))}
           </div>
         </div>
+
+        <div className="flex-1 overflow-x-auto styled-scrollbar" style={{ minHeight: '300px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ backgroundColor: 'var(--surface-container-low)', borderBottom: '1px solid var(--outline-variant)' }}>
+                <th style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--on-surface-variant)', fontSize: '0.85rem', letterSpacing: '0.05em' }}>CLIENT NAME</th>
+                <th style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--on-surface-variant)', fontSize: '0.85rem', letterSpacing: '0.05em' }}>PHONE NUMBER</th>
+                <th style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--on-surface-variant)', fontSize: '0.85rem', letterSpacing: '0.05em' }}>ACQUISITION DATE</th>
+                <th style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--on-surface-variant)', fontSize: '0.85rem', letterSpacing: '0.05em' }}>FEEDBACK STATUS</th>
+                <th style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--on-surface-variant)', fontSize: '0.85rem', letterSpacing: '0.05em' }}>TAGS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan="5" style={{ padding: '2rem', textAlign: 'center' }}>Syncing with Postgres...</td></tr>
+              ) : filteredClients.length > 0 ? filteredClients.map((c) => (
+                <tr key={c.id} style={{ borderBottom: '1px solid var(--outline-variant)', transition: 'background 0.2s', cursor: 'pointer' }} onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--surface-container-lowest)'} onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700, color: 'var(--on-surface)' }}>{c.name}</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--on-surface-variant)' }}>{c.phone}</td>
+                  <td style={{ padding: '1.25rem 1.5rem', color: 'var(--on-surface-variant)' }}>{new Date(c.created_at).toLocaleDateString()}</td>
+                  <td style={{ padding: '1.25rem 1.5rem' }}>
+                    <span style={{ 
+                      padding: '0.35rem 0.75rem', borderRadius: '2rem', fontSize: '0.8rem', fontWeight: 700,
+                      backgroundColor: c.rating_status?.includes('5-Star') ? '#E8F5E9' : c.rating_status?.includes('Star') ? '#FFF3CD' : 'var(--surface-container-high)',
+                      color: c.rating_status?.includes('5-Star') ? 'var(--primary)' : c.rating_status?.includes('Star') ? '#856404' : 'var(--on-surface-variant)'
+                    }}>
+                      {c.rating_status || 'Pending'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '1.25rem 1.5rem' }}>
+                     {c.tags && c.tags.length > 0 ? c.tags.join(', ') : '-'}
+                  </td>
+                </tr>
+              )) : (
+                <tr><td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>No clients found in the database. Use Quick Add or Inbox to add your first!</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
       </div>
-
-      {/* Add Client Modal */}
-      {isAddModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={closeAddModal}>
-          <div className="card" style={{ width: '100%', maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-display-xl" style={{ fontSize: '1.75rem' }}>Add New Client</h3>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem' }} onClick={closeAddModal}>✕</button>
-            </div>
-            <form className="flex flex-col gap-4 mt-2" onSubmit={handleAddClientSubmit}>
-              <div className="flex flex-col gap-2">
-                <label className="text-label-sm">Client Name*</label>
-                <input 
-                  type="text" 
-                  style={{ padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }}
-                  value={newClientData.name}
-                  onChange={(e) => setNewClientData({...newClientData, name: e.target.value})}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-label-sm">Phone Number*</label>
-                <input 
-                  type="tel" 
-                  style={{ padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }}
-                  value={newClientData.phone}
-                  onChange={(e) => setNewClientData({...newClientData, phone: e.target.value})}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-label-sm">Email Address</label>
-                <input 
-                  type="email" 
-                  style={{ padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }}
-                  value={newClientData.email}
-                  onChange={(e) => setNewClientData({...newClientData, email: e.target.value})}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-label-sm">Date of Birth</label>
-                <input 
-                  type="date" 
-                  style={{ padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }} 
-                  value={newClientData.dob}
-                  onChange={(e) => setNewClientData({...newClientData, dob: e.target.value})}
-                />
-              </div>
-              <div className="flex gap-4 mt-8 justify-end">
-                <button type="button" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }} onClick={closeAddModal}>Cancel</button>
-                <button type="submit" className="btn-primary">Save Client</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Profile/Edit Modal Popup */}
-      {isEditModalOpen && editingClient && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={closeEditModal}>
-          <div className="card" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-display-xl" style={{ fontSize: '1.75rem' }}>Client Profile</h3>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem' }} onClick={closeEditModal}>✕</button>
-            </div>
-
-            <div className="flex gap-4 mb-6">
-              <button 
-                style={{ padding: '0.5rem 1rem', borderRadius: '2rem', border: 'none', cursor: 'pointer', fontWeight: 600, backgroundColor: activeProfileTab === 'details' ? 'var(--surface-container-low)' : 'transparent', color: activeProfileTab === 'details' ? 'var(--primary)' : 'var(--on-surface-variant)' }}
-                onClick={() => setActiveProfileTab('details')}
-              >
-                Details
-              </button>
-              <button 
-                style={{ padding: '0.5rem 1rem', borderRadius: '2rem', border: 'none', cursor: 'pointer', fontWeight: 600, backgroundColor: activeProfileTab === 'logs' ? 'var(--surface-container-low)' : 'transparent', color: activeProfileTab === 'logs' ? 'var(--primary)' : 'var(--on-surface-variant)' }}
-                onClick={() => setActiveProfileTab('logs')}
-              >
-                Activity Logs
-              </button>
-            </div>
-
-            {activeProfileTab === 'details' ? (
-              <form className="flex flex-col gap-4 mt-2" onSubmit={handleUpdateClient}>
-                <div className="flex flex-col gap-2">
-                  <label className="text-label-sm">Client Name</label>
-                  <input 
-                    type="text" 
-                    style={{ padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }}
-                    value={editingClient.name}
-                    onChange={(e) => setEditingClient({...editingClient, name: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-label-sm">Phone Number</label>
-                  <input 
-                    type="tel" 
-                    style={{ padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }}
-                    value={editingClient.phone}
-                    onChange={(e) => setEditingClient({...editingClient, phone: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-label-sm">Email Address</label>
-                  <input 
-                    type="email" 
-                    style={{ padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }}
-                    value={editingClient.email !== 'No email provided' ? editingClient.email : ''}
-                    onChange={(e) => setEditingClient({...editingClient, email: e.target.value})}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-label-sm">Date of Birth</label>
-                  <input 
-                    type="date" 
-                    style={{ padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }}
-                    value={editingClient.dob !== 'Not provided' ? editingClient.dob : ''}
-                    onChange={(e) => setEditingClient({...editingClient, dob: e.target.value})}
-                  />
-                </div>
-                <div className="flex gap-4 mt-8 justify-end">
-                  <button type="button" style={{ padding: '0.75rem 1.5rem', borderRadius: '0.5rem', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }} onClick={closeEditModal}>Cancel</button>
-                  <button type="submit" className="btn-primary">Save Changes</button>
-                </div>
-              </form>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {editingClient.logs && editingClient.logs.length > 0 ? (
-                  editingClient.logs.map((log, index) => (
-                    <div key={index} className="flex flex-col p-4 bg-soft" style={{ borderRadius: '1rem' }}>
-                      <span className="text-label-sm" style={{ fontWeight: '600' }}>{log.date}</span>
-                      <span className="text-body mt-1" style={{ fontSize: '0.875rem' }}>{log.message}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-label-sm">No activity logs recorded yet.</p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 };
 

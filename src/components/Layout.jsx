@@ -1,7 +1,65 @@
-import React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
 const Layout = () => {
+  const navigate = useNavigate();
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Auto-healing logic: Auto-register business record if it's missing (for users who created an account prior to SQL execution)
+  useEffect(() => {
+    const initializeBusinessProfile = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const userId = session.user.id;
+
+        // Check if an entry exists for this user in the "businesses" table
+        const { data, error } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('id', userId)
+          .single();
+
+        if (error && error.code === 'PGRST116') {
+          // 'PGRST116' is the exact Postgres error code meaning "no rows returned". 
+          // This means they have an Auth token, but no business row! We must heal it.
+          console.log("Healing missing Business Profile...");
+          const { error: insertError } = await supabase
+            .from('businesses')
+            .insert([{ id: userId, name: session.user.email.split('@')[0] + "'s Agency" }]);
+            
+          if (insertError) {
+            console.error("Failed to heal business profile:", insertError.message);
+          }
+        }
+      } catch (err) {
+        console.error("Critical error mapping session to business profile", err);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    if (supabase) {
+      initializeBusinessProfile();
+    } else {
+      setIsInitializing(false);
+    }
+  }, []);
+
+  const handleLogout = async (e) => {
+    e.preventDefault();
+    if (supabase) {
+      await supabase.auth.signOut();
+      navigate('/login');
+    }
+  };
+
+  if (isInitializing) {
+    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Connecting secure backend...</div>;
+  }
+
   return (
     <div className="app-container">
       {/* Sidebar */}
@@ -17,6 +75,10 @@ const Layout = () => {
           <NavLink to="/dashboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
             Dashboard
+          </NavLink>
+          <NavLink to="/dashboard/inbox" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            Inbox
           </NavLink>
           <NavLink to="/dashboard/campaigns" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -38,10 +100,6 @@ const Layout = () => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             Platform Settings
           </NavLink>
-          <a href="#" className="nav-link">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            Team
-          </a>
         </nav>
 
         <div className="mt-auto flex flex-col gap-2 pt-6">
@@ -51,7 +109,9 @@ const Layout = () => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
             Help Center
           </NavLink>
-          <a href="#" className="nav-link" style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
+          
+          {/* FUNCTIONAL LOGOUT BUTTON */}
+          <a href="#" onClick={handleLogout} className="nav-link" style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
             Logout
           </a>
@@ -70,17 +130,12 @@ const Layout = () => {
             </div>
             <div className="top-tabs">
               <span className="top-tab active">Overview</span>
-              <span className="top-tab">Messages</span>
-              <span className="top-tab">Settings</span>
             </div>
           </div>
           
           <div className="flex items-center gap-4">
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--on-surface-variant)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-            </button>
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--on-surface-variant)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
             </button>
             <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: '#2aa29b', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
               <img src="https://i.pravatar.cc/100?img=47" alt="User profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -98,9 +153,7 @@ const Layout = () => {
             <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--primary-fixed)' }}></span>
           </div>
           <div className="flex gap-4">
-            <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>DOCUMENTATION</a>
-            <a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>PRIVACY ARCHITECTURE</a>
-            <span>V2.4.0-EMERALD</span>
+            <span>V3.0.0-SUPABASE-RLS</span>
           </div>
         </div>
 

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('workspace');
@@ -6,13 +7,23 @@ const Settings = () => {
   const [saveMessage, setSaveMessage] = useState('');
 
   // Workspace State
-  const [businessName, setBusinessName] = useState('Reviewzly Pro');
-  const [gmbUrl, setGmbUrl] = useState('https://g.page/r/your-google-business-link/review');
-  const [recoveryEmail, setRecoveryEmail] = useState('support@reviewzly.com');
+  const [businessName, setBusinessName] = useState('');
+  const [gmbUrl, setGmbUrl] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
 
   // Templates State
-  const [reviewSms, setReviewSms] = useState('Hi {{client_name}}, thanks for choosing {{business_name}}! Please let us know how we did today: {{review_link}}');
-  const [birthdaySms, setBirthdaySms] = useState('Happy Birthday {{client_name}}! Celebrate with 20% off your next visit at {{business_name}} today!');
+  const [reviewSms, setReviewSms] = useState('');
+  const [birthdaySms, setBirthdaySms] = useState('');
+
+  useEffect(() => {
+    const fetchBusiness = async () => {
+       const { data: { session } } = await supabase.auth.getSession();
+       if (!session) return;
+       const { data } = await supabase.from('businesses').select('name').eq('id', session.user.id).single();
+       if (data) setBusinessName(data.name);
+    }
+    fetchBusiness();
+  }, []);
 
   // Branding State
   const [brandColor, setBrandColor] = useState('#00a84d');
