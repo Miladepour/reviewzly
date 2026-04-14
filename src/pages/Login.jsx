@@ -8,6 +8,7 @@ const Login = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const navigate = useNavigate();
 
   const handleAuth = async (e) => {
@@ -19,12 +20,13 @@ const Login = () => {
 
     setLoading(true);
     setErrorMsg('');
+    setSuccessMsg('');
 
     try {
       if (isRegistering) {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        alert('Success! Check your email to verify your account.');
+        setSuccessMsg('Success! Check your email to verify your account.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -66,6 +68,12 @@ const Login = () => {
           {errorMsg && (
             <div style={{ backgroundColor: '#FEE2E2', color: '#B91C1C', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1.5rem', fontSize: '0.9rem', border: '1px solid #FCA5A5' }}>
               <strong>Error:</strong> {errorMsg}
+            </div>
+          )}
+
+          {successMsg && (
+            <div style={{ backgroundColor: '#E8F5E9', color: '#2e7d32', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1.5rem', fontSize: '0.9rem', border: '1px solid #c8e6c9' }}>
+              <strong>Status:</strong> {successMsg}
             </div>
           )}
 

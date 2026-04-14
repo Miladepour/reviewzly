@@ -8,6 +8,15 @@ const MOCK_DIRECTORY = [
 
 const Inbox = () => {
   const [conversations, setConversations] = useState([]);
+  
+  // Chat Notification State
+  const [dispatchError, setDispatchError] = useState('');
+  const [dispatchSuccess, setDispatchSuccess] = useState('');
+
+  const showChatToast = (msg, isErr = true) => {
+      if (isErr) setDispatchError(msg); else setDispatchSuccess(msg);
+      setTimeout(() => { setDispatchError(''); setDispatchSuccess(''); }, 6000);
+  };
   const [activeId, setActiveId] = useState(null);
   const [composerText, setComposerText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -115,16 +124,16 @@ const Inbox = () => {
             
             if (!voodooRes.ok) {
                 console.error("Voodoo API failed to send SMS.");
-                alert("Failed to send message via Voodoo API. Please verify your token and format.");
+                showChatToast("Failed to send message via Voodoo API. Please verify your token and format.");
                 return;
             }
         } catch (err) {
             console.error(err);
-            alert("Error connecting to dispatch server via CORS Proxy.");
+            showChatToast("Error connecting to dispatch server via CORS Proxy.");
             return;
         }
     } else {
-        alert("Integrations Error: You must link a Voodoo API key in Platform Settings to broadcast messages.");
+        showChatToast("Integrations Error: You must link a Voodoo API key in Platform Settings to broadcast messages.");
         return;
     }
     
@@ -157,7 +166,7 @@ const Inbox = () => {
     const { data: businessData } = await supabase.from('businesses').select('voodoo_api_key, voodoo_sender_id').eq('id', bid).single();
     
     if (!businessData || !businessData.voodoo_api_key) {
-       alert("Integrations Error: You must link a Voodoo API key in Platform Settings to broadcast messages.");
+       showChatToast("Integrations Error: You must link a Voodoo API key in Platform Settings to broadcast messages.");
        return;
     }
 
@@ -177,11 +186,11 @@ const Inbox = () => {
         });
         
         if (!voodooRes.ok) {
-            alert("Failed to send message via Voodoo API. Ensure you are using proper country codes.");
+            showChatToast("Failed to send message via Voodoo API. Ensure you are using proper country codes.");
             return;
         }
     } catch (err) {
-        alert("Error connecting to Voodoo dispatch server over CORS.");
+        showChatToast("Error connecting to Voodoo dispatch server over CORS.");
         return;
     }
 
@@ -424,6 +433,9 @@ const Inbox = () => {
               padding: '1rem 2rem', borderTop: '1px solid var(--outline-variant)', backgroundColor: 'white' 
             }}
           >
+            {dispatchError && <div style={{ position: 'absolute', top: '-40px', left: '10%', right: '10%', padding: '0.5rem', backgroundColor: '#FFEBEE', color: '#c62828', textAlign: 'center', borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: 600, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>{dispatchError}</div>}
+            {dispatchSuccess && <div style={{ position: 'absolute', top: '-40px', left: '10%', right: '10%', padding: '0.5rem', backgroundColor: '#E8F5E9', color: '#2e7d32', textAlign: 'center', borderRadius: '0.5rem', fontSize: '0.85rem', fontWeight: 600, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>{dispatchSuccess}</div>}
+
             <form onSubmit={handleSend} className="flex gap-4 items-center h-full">
               <button type="button" style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', cursor: 'pointer', padding: '0.5rem' }} title="Attach Media">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>

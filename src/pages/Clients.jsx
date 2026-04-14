@@ -8,6 +8,15 @@ const Clients = () => {
   const [clients, setClients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Notifications
+  const [pageMessage, setPageMessage] = useState('');
+  const [pageError, setPageError] = useState('');
+
+  const displayNotice = (msg, isError = false) => {
+    if (isError) setPageError(msg); else setPageMessage(msg);
+    setTimeout(() => { setPageError(''); setPageMessage(''); }, 5000);
+  };
+
   // CSV Import State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -60,7 +69,7 @@ const Clients = () => {
               setIsEditMode(false);
           } else { throw error; }
       } catch (err) {
-          alert('Error saving client edits');
+          displayNotice('Error saving client edits', true);
           console.error(err);
       } finally { setIsSavingEdit(false); }
   };
@@ -124,7 +133,7 @@ const Clients = () => {
           if(data) setClients(data);
 
       } catch (error) {
-          alert('Error saving client. Please try again.');
+          displayNotice('Error saving client. Please try again.', true);
           console.error(error);
       } finally {
           setIsAdding(false);
@@ -212,13 +221,13 @@ const Clients = () => {
             }
         }
         
-        alert(`Successfully imported ${importedCount} clients and routed automated sequences!`);
+        displayNotice(`Successfully imported ${importedCount} clients and routed automated sequences!`);
         setIsImportModalOpen(false);
         const { data } = await supabase.from('clients').select('*').eq('business_id', bid).order('created_at', { ascending: false });
         if(data) setClients(data);
 
     } catch (e) {
-        alert("Error parsing CSV format.");
+        displayNotice("Error parsing CSV format.", true);
         console.error(e);
     } finally {
         setIsImporting(false);
@@ -254,7 +263,7 @@ const Clients = () => {
         if (!error) {
             setClients(prev => prev.filter(c => c.id !== clientId));
         } else {
-            alert("Error deleting client.");
+            displayNotice("Error deleting client.", true);
             console.error(error);
         }
     }
@@ -282,6 +291,7 @@ const Clients = () => {
             Live CRM connection established.
           </p>
         </div>
+        
         <div className="flex gap-2">
           <button className="btn-primary" onClick={() => setIsAddModalOpen(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'var(--surface-container-high)', color: 'var(--on-surface)' }}>
             + Add Client
@@ -291,6 +301,9 @@ const Clients = () => {
           </button>
         </div>
       </div>
+
+      {pageMessage && <div style={{ padding: '1rem', backgroundColor: '#E8F5E9', color: '#2e7d32', borderRadius: '0.5rem', fontWeight: 600, border: '1px solid #c8e6c9' }}>{pageMessage}</div>}
+      {pageError && <div style={{ padding: '1rem', backgroundColor: '#FFEBEE', color: '#c62828', borderRadius: '0.5rem', fontWeight: 600, border: '1px solid #ffcdd2' }}>{pageError}</div>}
 
       <div className="card" style={{ flex: 1, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         

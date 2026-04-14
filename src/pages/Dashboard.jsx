@@ -61,6 +61,8 @@ const Dashboard = () => {
 
     } catch (e) {
       console.error(e);
+      setMessage(`Network Sync Error: Could not reliably reach Database. Please check connection.`);
+      setTimeout(() => setMessage(''), 6000);
     } finally {
       setIsLoading(false);
     }
