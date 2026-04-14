@@ -88,16 +88,55 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // Automatically dispatch the initial Review Request SMS logic via logging
+      // === NEW: Automated SMS Dispatch ===
+      const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
+      
+      let dispatchLogText = 'Client added without SMS (No template or keys configured).';
+      
+      if (bData && bData.voodoo_api_key && bData.review_sms) {
+          // Parse dynamic template variables
+          let finalSms = bData.review_sms
+              .replace(/{{business_name}}/g, bData.name || 'Our Business')
+              .replace(/{{client_name}}/g, clientName || 'there')
+              .replace(/{{review_link}}/g, `http://localhost:5173/r/${bData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
+              
+          try {
+             const destPhone = clientPhone.replace(/[^0-9]/g, '');
+             const vRes = await fetch('/api/voodoo/sendsms', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${bData.voodoo_api_key}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    to: destPhone,
+                    from: bData.voodoo_sender_id || 'Reviewzly',
+                    msg: finalSms
+                })
+             });
+             
+             if (vRes.ok) {
+                 dispatchLogText = `[AUTO-DISPATCH SUCCESS] ` + finalSms;
+             } else {
+                 dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
+                 console.warn("Voodoo API failed to deliver the automated payload.");
+             }
+          } catch(err) {
+             console.error("Voodoo Dispatch Error:", err);
+             dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
+          }
+      }
+
+      // Automatically log the result to the history timeline
       await supabase.from('communications').insert([{
          client_id: clientData.id,
          business_id: session.user.id,
          type: 'BULK_CAMPAIGN',
-         text: 'System automatically dispatched Review Link to new client.',
+         text: dispatchLogText,
          is_outbound: true
       }]);
 
-      setMessage('Client created exactly in Database. Initial SMS logged.');
+      setMessage('Client accurately created in Database and Voodoo sequence initiated.');
       setClientName('');
       setClientPhone('');
       setClientEmail('');

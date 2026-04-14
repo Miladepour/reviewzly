@@ -19,8 +19,15 @@ const Settings = () => {
     const fetchBusiness = async () => {
        const { data: { session } } = await supabase.auth.getSession();
        if (!session) return;
-       const { data } = await supabase.from('businesses').select('name').eq('id', session.user.id).single();
-       if (data) setBusinessName(data.name);
+       const { data } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
+       if (data) {
+         setBusinessName(data.name || '');
+         setGmbUrl(data.gmb_url || '');
+         setRecoveryEmail(data.recovery_email || '');
+         setReviewSms(data.review_sms || '');
+         setBirthdaySms(data.birthday_sms || '');
+         setBrandColor(data.brand_color || '#00a84d');
+       }
     }
     fetchBusiness();
   }, []);
@@ -28,14 +35,31 @@ const Settings = () => {
   // Branding State
   const [brandColor, setBrandColor] = useState('#00a84d');
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
-    setTimeout(() => {
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error } = await supabase.from('businesses').update({
+         name: businessName,
+         gmb_url: gmbUrl,
+         recovery_email: recoveryEmail,
+         review_sms: reviewSms,
+         birthday_sms: birthdaySms,
+         brand_color: brandColor
+      }).eq('id', session.user.id);
+      
+      if (error) throw error;
+      
+      setSaveMessage('Platform settings saved securely to Database.');
+    } catch (err) {
+      console.error(err);
+      setSaveMessage('Error saving configurations. Ensure SQL columns are added!');
+    } finally {
       setIsSaving(false);
-      setSaveMessage('Platform settings saved successfully.');
-      setTimeout(() => setSaveMessage(''), 3000);
-    }, 800);
+      setTimeout(() => setSaveMessage(''), 4000);
+    }
   };
 
   return (
