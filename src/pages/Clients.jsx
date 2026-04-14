@@ -15,6 +15,122 @@ const Clients = () => {
   // Profile Popup State
   const [activeClient, setActiveClient] = useState(null);
   
+  // Advanced Profile State
+  const [clientHistory, setClientHistory] = useState([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [profileTab, setProfileTab] = useState('data'); // 'data' | 'history'
+  
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editDob, setEditDob] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  useEffect(() => {
+     if (activeClient) {
+         setProfileTab('data');
+         setIsEditMode(false);
+         setEditName(activeClient.name || '');
+         setEditPhone(activeClient.phone || '');
+         setEditEmail(activeClient.email || '');
+         setEditDob(activeClient.dob || '');
+
+         const fetchHistory = async () => {
+             setIsHistoryLoading(true);
+             const { data } = await supabase.from('communications').select('*').eq('client_id', activeClient.id).order('created_at', { ascending: false });
+             if (data) setClientHistory(data);
+             setIsHistoryLoading(false);
+         };
+         fetchHistory();
+     }
+  }, [activeClient]);
+
+  const handleSaveEdit = async (e) => {
+      e.preventDefault();
+      setIsSavingEdit(true);
+      try {
+          const { error } = await supabase.from('clients').update({
+              name: editName, phone: editPhone, email: editEmail, dob: editDob
+          }).eq('id', activeClient.id);
+          
+          if (!error) {
+              setClients(clients.map(c => c.id === activeClient.id ? { ...c, name: editName, phone: editPhone, email: editEmail, dob: editDob } : c));
+              setActiveClient({ ...activeClient, name: editName, phone: editPhone, email: editEmail, dob: editDob });
+              setIsEditMode(false);
+          } else { throw error; }
+      } catch (err) {
+          alert('Error saving client edits');
+          console.error(err);
+      } finally { setIsSavingEdit(false); }
+  };
+  
+  // Add Client State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addName, setAddName] = useState('');
+  const [addPhone, setAddPhone] = useState('');
+  const [addEmail, setAddEmail] = useState('');
+  const [addDob, setAddDob] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleDirectoryQuickAdd = async (e) => {
+      e.preventDefault();
+      setIsAdding(true);
+
+      try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const { data: clientData, error } = await supabase.from('clients').insert([{
+            business_id: session.user.id,
+            name: addName,
+            phone: addPhone,
+            email: addEmail || null,
+            dob: addDob || null,
+            tags: ['Directory Add']
+          }]).select().single();
+
+          if (error) throw error;
+
+          const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
+          let dispatchLogText = 'Client added without SMS (No template).';
+
+          if (bData && bData.voodoo_api_key && bData.review_sms) {
+              let finalSms = bData.review_sms
+                  .replace(/{{business_name}}/g, bData.name || 'Our Business')
+                  .replace(/{{client_name}}/g, addName || 'there')
+                  .replace(/{{review_link}}/g, `http://localhost:5173/r/${bData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
+
+              try {
+                  const destPhone = addPhone.replace(/[^0-9]/g, '');
+                  const vRes = await fetch('/api/voodoo/sendsms', {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${bData.voodoo_api_key}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ to: destPhone, from: bData.voodoo_sender_id || 'Reviewzly', msg: finalSms })
+                  });
+                  if (vRes.ok) dispatchLogText = `[AUTO-DISPATCH SUCCESS] ` + finalSms;
+                  else dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
+              } catch(err) {
+                  dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
+              }
+          }
+
+          await supabase.from('communications').insert([{
+             client_id: clientData.id, business_id: session.user.id, type: 'BULK_CAMPAIGN', text: dispatchLogText, is_outbound: true
+          }]);
+
+          setAddName(''); setAddPhone(''); setAddEmail(''); setAddDob('');
+          setIsAddModalOpen(false);
+
+          const { data } = await supabase.from('clients').select('*').eq('business_id', session.user.id).order('created_at', { ascending: false });
+          if(data) setClients(data);
+
+      } catch (error) {
+          alert('Error saving client. Please try again.');
+          console.error(error);
+      } finally {
+          setIsAdding(false);
+      }
+  };
+  
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -166,9 +282,14 @@ const Clients = () => {
             Live CRM connection established.
           </p>
         </div>
-        <button className="btn-primary" onClick={() => setIsImportModalOpen(true)} style={{ padding: '0.75rem 1.5rem' }}>
-          + Import CSV
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-primary" onClick={() => setIsAddModalOpen(true)} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'var(--surface-container-high)', color: 'var(--on-surface)' }}>
+            + Add Client
+          </button>
+          <button className="btn-primary" onClick={() => setIsImportModalOpen(true)} style={{ padding: '0.75rem 1.5rem' }}>
+            + Import CSV
+          </button>
+        </div>
       </div>
 
       <div className="card" style={{ flex: 1, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -286,10 +407,34 @@ Alice Smith, 14449876543`}
         </div>
       )}
 
+      {/* MANUAL ADD CLIENT MODAL */}
+      {isAddModalOpen && (
+        <div onClick={() => setIsAddModalOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+             <h2 className="text-title-lg">Add New Contact</h2>
+             <form onSubmit={handleDirectoryQuickAdd} className="flex flex-col gap-4">
+                <input type="text" placeholder="Full Name*" value={addName} onChange={(e) => setAddName(e.target.value)} required style={{ padding: '1rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }} />
+                <input type="tel" placeholder="Mobile Number*" value={addPhone} onChange={(e) => setAddPhone(e.target.value)} required style={{ padding: '1rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }} />
+                <input type="email" placeholder="Email Address (Optional)" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} style={{ padding: '1rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }} />
+                <input type="date" placeholder="Date of Birth (Optional)" value={addDob} onChange={(e) => setAddDob(e.target.value)} style={{ padding: '1rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }} />
+                
+                <div className="flex gap-2 justify-end mt-2">
+                  <button type="button" onClick={() => setIsAddModalOpen(false)} style={{ padding: '0.75rem 1.5rem', background: 'transparent', border: 'none', cursor: 'pointer' }}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={isAdding} style={{ padding: '0.75rem 1.5rem' }}>
+                    {isAdding ? 'Routing...' : 'Inject & Automate SMS'}
+                  </button>
+                </div>
+             </form>
+          </div>
+        </div>
+      )}
+
       {/* PROFILE POPUP MODAL */}
       {activeClient && (
         <div onClick={() => setActiveClient(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
+             
+             {/* Header */}
              <div className="flex justify-between items-start">
                <div>
                  <h2 className="text-title-lg">{activeClient.name}</h2>
@@ -303,23 +448,79 @@ Alice Smith, 14449876543`}
                  {activeClient.rating_status || 'Pending'}
                </span>
              </div>
+
+             {/* Tab Navigation */}
+             <div style={{ display: 'flex', borderBottom: '1px solid var(--outline-variant)' }}>
+                <button onClick={() => setProfileTab('data')} style={{ flex: 1, padding: '1rem', background: profileTab === 'data' ? 'white' : 'transparent', border: 'none', borderBottom: profileTab === 'data' ? '3px solid var(--primary)' : '3px solid transparent', fontWeight: 700, cursor: 'pointer', color: profileTab === 'data' ? 'var(--primary)' : 'var(--on-surface-variant)' }}>User Profile</button>
+                <button onClick={() => setProfileTab('history')} style={{ flex: 1, padding: '1rem', background: profileTab === 'history' ? 'white' : 'transparent', border: 'none', borderBottom: profileTab === 'history' ? '3px solid var(--primary)' : '3px solid transparent', fontWeight: 700, cursor: 'pointer', color: profileTab === 'history' ? 'var(--primary)' : 'var(--on-surface-variant)' }}>Conversations</button>
+             </div>
              
-             <div style={{ backgroundColor: 'var(--surface-container-lowest)', padding: '1.25rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }}>
-                <p className="text-label-sm" style={{ fontWeight: 700, color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Acquisition Data</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                   <div>
-                     <p className="text-label-sm" style={{ opacity: 0.7 }}>Date Added</p>
-                     <p className="text-body" style={{ fontWeight: 600 }}>{new Date(activeClient.created_at).toLocaleDateString()}</p>
-                   </div>
-                   <div>
-                     <p className="text-label-sm" style={{ opacity: 0.7 }}>Tags</p>
-                     <p className="text-body" style={{ fontWeight: 600 }}>{activeClient.tags && activeClient.tags.length > 0 ? activeClient.tags.join(', ') : 'None'}</p>
-                   </div>
-                </div>
+             <div style={{ minHeight: '300px' }}>
+                 {/* DATA TAB */}
+                 {profileTab === 'data' && (
+                     <>
+                      {!isEditMode ? (
+                        <div className="flex flex-col gap-4">
+                            <div style={{ backgroundColor: 'var(--surface-container-lowest)', padding: '1.25rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }}>
+                                <p className="text-label-sm" style={{ fontWeight: 700, color: 'var(--on-surface-variant)', marginBottom: '1rem' }}>Personal Identity</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+                                    <p className="text-body"><strong>Email:</strong> {activeClient.email || 'None provided'}</p>
+                                    <p className="text-body"><strong>Date of Birth:</strong> {activeClient.dob || 'None provided'}</p>
+                                </div>
+                            </div>
+
+                            <div style={{ backgroundColor: 'var(--surface-container-lowest)', padding: '1.25rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }}>
+                                <p className="text-label-sm" style={{ fontWeight: 700, color: 'var(--on-surface-variant)', marginBottom: '0.5rem' }}>Acquisition Data</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <p className="text-label-sm" style={{ opacity: 0.7 }}>Date Added</p>
+                                    <p className="text-body" style={{ fontWeight: 600 }}>{new Date(activeClient.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <div>
+                                    <p className="text-label-sm" style={{ opacity: 0.7 }}>Tags</p>
+                                    <p className="text-body" style={{ fontWeight: 600 }}>{activeClient.tags && activeClient.tags.length > 0 ? activeClient.tags.join(', ') : 'None'}</p>
+                                </div>
+                                </div>
+                            </div>
+                        </div>
+                      ) : (
+                          <form onSubmit={handleSaveEdit} className="flex flex-col gap-3">
+                              <input type="text" placeholder="Full Name" value={editName} onChange={(e) => setEditName(e.target.value)} required style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }} />
+                              <input type="tel" placeholder="Phone Number" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} required style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }} />
+                              <input type="email" placeholder="Email Address" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }} />
+                              <input type="date" placeholder="Date of Birth" value={editDob} onChange={(e) => setEditDob(e.target.value)} style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)' }} />
+                              <button type="submit" disabled={isSavingEdit} className="btn-primary" style={{ marginTop: '0.5rem' }}>{isSavingEdit ? 'Saving...' : 'Confirm Edits'}</button>
+                          </form>
+                      )}
+                     </>
+                 )}
+
+                 {/* HISTORY TAB */}
+                 {profileTab === 'history' && (
+                     <div className="flex flex-col gap-3">
+                         {isHistoryLoading ? <p className="text-body">Fetching logs from Postgres...</p> : clientHistory.length === 0 ? <p className="text-body text-center" style={{ padding: '2rem' }}>No communication history found.</p> : clientHistory.map(comm => (
+                             <div key={comm.id} style={{ display: 'flex', flexDirection: 'column', alignItems: comm.is_outbound ? 'flex-end' : 'flex-start' }}>
+                                <p style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '0.25rem' }}>{new Date(comm.created_at).toLocaleString()}</p>
+                                <div style={{ 
+                                    padding: '0.75rem 1rem', borderRadius: '1rem', maxWidth: '85%',
+                                    backgroundColor: comm.is_outbound ? 'var(--primary)' : 'var(--surface-container-high)',
+                                    color: comm.is_outbound ? 'white' : 'var(--on-surface)'
+                                }}>
+                                    <p className="text-body" style={{ fontSize: '0.9rem' }}>{comm.text}</p>
+                                </div>
+                             </div>
+                         ))}
+                     </div>
+                 )}
              </div>
 
-             <div className="flex gap-2 justify-end mt-2">
-                <button onClick={() => setActiveClient(null)} className="btn-primary" style={{ backgroundColor: 'transparent', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)' }}>Close Profile</button>
+             <div className="flex gap-2 justify-end mt-2 pt-4" style={{ borderTop: '1px solid var(--outline-variant)' }}>
+                {profileTab === 'data' && (
+                     <button onClick={() => setIsEditMode(!isEditMode)} className="btn-primary" style={{ backgroundColor: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)' }}>
+                        {isEditMode ? 'Cancel Edit' : 'Edit Profile'}
+                     </button>
+                )}
+                <button onClick={() => setActiveClient(null)} className="btn-primary" style={{ backgroundColor: 'var(--surface-container-highest)', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)' }}>Close Window</button>
              </div>
           </div>
         </div>

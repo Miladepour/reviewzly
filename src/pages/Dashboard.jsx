@@ -83,6 +83,8 @@ const Dashboard = () => {
         business_id: session.user.id,
         name: clientName,
         phone: clientPhone,
+        email: clientEmail || null,
+        dob: clientDob || null,
         tags: ['Quick Add']
       }]).select().single();
 
