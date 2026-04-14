@@ -7,6 +7,7 @@ const Integrations = () => {
   // Connect natively to Postgres Database
   const [apiKey, setApiKey] = useState('');
   const [senderId, setSenderId] = useState('');
+  const [businessId, setBusinessId] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -14,6 +15,7 @@ const Integrations = () => {
     const fetchKeys = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+      setBusinessId(session.user.id);
       const { data } = await supabase.from('businesses').select('voodoo_api_key, voodoo_sender_id').eq('id', session.user.id).single();
       
       if (data) {
@@ -97,6 +99,41 @@ const Integrations = () => {
                 </button>
                 {isSaved && <span className="tag-light-green">Config updated successfully</span>}
               </div>
+
+              {businessId && (
+                <div style={{ marginTop: '1.5rem', padding: '1.25rem', backgroundColor: 'var(--surface-container-lowest)', border: '1px solid var(--primary)', borderRadius: '0.5rem' }}>
+                  <label className="text-label-sm block" style={{ fontWeight: 800, color: 'var(--primary-dark)', marginBottom: '0.25rem' }}>Automated Inbox Routing (Voodoo Webhook)</label>
+                  <p className="text-body mb-3" style={{ fontSize: '0.85rem', opacity: 0.8 }}>Because Voodoo enforces max 50-char URL limits, you cannot place your Database ID inside the URL. Follow these two exact steps in Voodoo SMS:</p>
+                  
+                  <label className="text-label-sm block" style={{ fontWeight: 700, color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>1. Drop this Endpoint URL into Voodoo:</label>
+                  <div className="flex gap-2 mb-4">
+                     <input 
+                       type="text" 
+                       readOnly 
+                       value={`${window.location.origin}/api/w/v`} 
+                       style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: '1px solid var(--outline-variant)', backgroundColor: 'var(--surface-container-low)', fontSize: '0.85rem', color: 'var(--on-surface-variant)', fontWeight: 600, fontFamily: 'monospace' }}
+                     />
+                     <button type="button" className="btn-primary" onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/api/w/v`);
+                        alert('Short Webhook Endpoint Copied!');
+                     }} style={{ padding: '0 1.5rem' }}>Copy URL</button>
+                  </div>
+
+                  <label className="text-label-sm block" style={{ fontWeight: 700, color: 'var(--on-surface-variant)', marginBottom: '0.25rem' }}>2. Paste your Router UUID exactly into the Voodoo "Secret" Field:</label>
+                  <div className="flex gap-2">
+                     <input 
+                       type="text" 
+                       readOnly 
+                       value={businessId} 
+                       style={{ flex: 1, padding: '0.75rem', borderRadius: '0.25rem', border: '1px solid var(--outline-variant)', backgroundColor: '#fff', fontSize: '0.85rem', color: 'var(--on-surface-variant)', fontWeight: 600, fontFamily: 'monospace', opacity: 0.8 }}
+                     />
+                     <button type="button" className="btn-primary" onClick={() => {
+                        navigator.clipboard.writeText(businessId);
+                        alert('Router UUID Secret Copied!');
+                     }} style={{ padding: '0 1.5rem', backgroundColor: 'var(--surface-container-high)', color: 'var(--on-surface)' }}>Copy Secret</button>
+                  </div>
+                </div>
+              )}
             </form>
           )}
         </div>
