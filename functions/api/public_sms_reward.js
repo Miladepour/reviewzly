@@ -46,7 +46,7 @@ export async function onRequestPost({ request, env }) {
     // 3. SECURE PAYLOAD PREPARATION
     const destPhone = rpcData.dest;
     const gmbUrl = rpcData.gmb_url;
-    const senderId = rpcData.sender_id;
+    const senderId = rpcData.sender_id || 'Reviewzly';
     const clientName = rpcData.client_name;
     const customTemplate = rpcData.reward_sms || 'Hi {{client_name}}! Thanks so much for the 5 stars! As promised, here is the official link to post it on Google. It takes 10 seconds and means the world to us! {{google_link}}';
 
