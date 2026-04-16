@@ -96,24 +96,20 @@ const ReviewCapture = () => {
     setIsSubmitting(true);
     
     try {
-        if (businessInfo) {
-            // Save the captured lead directly into their CRM with the "Captured" flag
-            await supabase.from('clients').insert([{
-                business_id: businessInfo.id,
-                name: name,
-                phone: phone,
-                tags: ['Internal Recovery'],
-                rating_status: `${rating}-Star Captured`
-            }]);
-            
-            // Log interaction timeline
-            await supabase.from('communications').insert([{
-                client_id: null, // Global notification
-                business_id: businessInfo.id,
-                type: 'INBOUND_SMS',
-                text: `[RESTRICTED REVIEW CAUGHT] ${name} (${phone}) attempted to leave a ${rating}-Star review. Problem: "${feedback}"`,
-                is_outbound: false
-            }]);
+        if (clientInfo && businessInfo) {
+            // Bypass strict database RLS wall natively via Secure RPC
+            const { error } = await supabase.rpc('submit_internal_feedback', {
+                p_client_id: clientInfo.id,
+                p_rating: rating,
+                p_feedback: feedback,
+                p_name: name,
+                p_phone: phone
+            });
+
+            if (error) {
+                console.error("RPC Error:", error);
+                alert("Failed to save feedback securely.");
+            }
         }
     } catch(err) {
         console.error("Save Error:", err);
@@ -215,7 +211,7 @@ const ReviewCapture = () => {
           <div className="fade-in" style={{ textAlign: 'left' }}>
             <h1 className="text-display-xl mb-2" style={{ fontSize: '1.75rem', color: '#102A14' }}>We want to fix this.</h1>
             <p className="text-body mb-6" style={{ fontSize: '0.95rem', lineHeight: 1.5 }}>
-              We strive for perfect service. We're very sorry we let you down. Please tell our management team what happened so we can make it right.
+               😔 We are profoundly sorry that your experience wasn't absolutely perfect. We strive for perfect service. Please tell our management team what happened so we can make this right.
             </p>
             
             <form onSubmit={handleInternalSubmit} className="flex flex-col gap-4">
