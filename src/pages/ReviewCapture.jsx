@@ -71,7 +71,13 @@ const ReviewCapture = () => {
                    method: 'POST',
                    headers: { 'Content-Type': 'application/json' },
                    body: JSON.stringify({ uid: clientInfo.id })
-               }).then(r => r.json()).then(res => console.log(res)).catch(e => console.error(e));
+               }).then(r => r.json()).then(res => {
+                   if (res.error) {
+                      alert("SMS Error: " + res.error + (res.details ? " | " + res.details : ""));
+                   } else {
+                      console.log("Reward Sent Natively");
+                   }
+               }).catch(e => alert("Network Crash: " + e.message));
            } else {
                // Untracked fallback dummy-ping
                supabase.from('clients').insert([{
