@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 
 const Campaigns = () => {
+  const addToast = useToast();
   const [campaigns, setCampaigns] = useState([]);
   const [clients, setClients] = useState([]);
   const [businessData, setBusinessData] = useState(null);
@@ -17,9 +19,6 @@ const Campaigns = () => {
   const [isDispatching, setIsDispatching] = useState(false);
   const [dispatchStatus, setDispatchStatus] = useState('');
   
-  // Notice State
-  const [notice, setNotice] = useState({ text: '', type: '' });
-
   const fetchDashboardData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -34,7 +33,7 @@ const Campaigns = () => {
 
       if (error && error.code === '42P01') {
           // Table doesn't exist yet! Handle gracefully for UX.
-          console.error("SQL REQUIRED: Missing campaigns table");
+          addToast("SQL REQUIRED: Missing campaigns table", "error");
           setCampaigns([]);
       } else if (camps) {
           setCampaigns(camps);
@@ -61,7 +60,7 @@ const Campaigns = () => {
       }
 
     } catch (e) {
-      console.error(e);
+      addToast("Failed to fetch campaign data natively.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -72,8 +71,7 @@ const Campaigns = () => {
   }, []);
 
   const showNotice = (text, type = 'success') => {
-      setNotice({ text, type });
-      setTimeout(() => setNotice({ text: '', type: '' }), 6000);
+      addToast(text, type);
   };
 
   // Determine Matched List
@@ -104,7 +102,7 @@ const Campaigns = () => {
       if (predictedCost === 0) return;
       if (!isAffordable) return;
       if (!campaignName) {
-          alert('Please enter a Campaign Name before blasting.');
+          addToast('Please enter a Campaign Name before blasting.', 'warning');
           return;
       }
       
@@ -173,7 +171,9 @@ const Campaigns = () => {
              fail_count: failCount
           }]);
           
-          if(campaignInsertError) console.error("Could not write master report. Table missing?", campaignInsertError);
+          if(campaignInsertError) {
+              addToast("Could not write master report. Table missing?", "error");
+          }
 
           setIsModalOpen(false);
           setCampaignName('');
@@ -181,8 +181,7 @@ const Campaigns = () => {
           await fetchDashboardData(); // Refresh UI State
 
       } catch (e) {
-          console.error(e);
-          showNotice("A critical error interrupted the global campaign loop.", "error");
+          addToast("A critical error interrupted the global campaign loop.", "error");
       } finally {
           setIsDispatching(false);
           setDispatchStatus('');
@@ -210,11 +209,7 @@ const Campaigns = () => {
         )}
       </div>
 
-      {notice.text && (
-        <div style={{ padding: '1rem', backgroundColor: notice.type === 'error' ? '#FFEBEE' : '#E8F5E9', color: notice.type === 'error' ? '#c62828' : '#2e7d32', borderRadius: '0.5rem', fontWeight: 600, border: notice.type === 'error' ? '1px solid #ffcdd2' : '1px solid #c8e6c9' }}>
-            {notice.text}
-        </div>
-      )}
+
 
       {/* Relational Master View */}
       <div className="card" style={{ padding: '2rem' }}>

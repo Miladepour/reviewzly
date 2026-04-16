@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 const ReviewCapture = () => {
   const { businessName: shortCode } = useParams();
@@ -8,6 +9,7 @@ const ReviewCapture = () => {
   const [businessInfo, setBusinessInfo] = useState(null);
   const [clientInfo, setClientInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const addToast = useToast();
 
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -47,7 +49,7 @@ const ReviewCapture = () => {
           setPhone(data.client.phone || '');
         }
       } catch (err) {
-        console.error("Failed to load tracking profile:", err);
+        addToast("Failed to secure tracking payload. Interface may be degraded.", "warning");
       } finally {
         setIsLoading(false);
       }
@@ -69,11 +71,9 @@ const ReviewCapture = () => {
                    body: JSON.stringify({ uid: clientInfo.id })
                }).then(r => r.json()).then(res => {
                    if (res.error) {
-                      alert("SMS Error: " + res.error + (res.details ? " | " + res.details : ""));
-                   } else {
-                      console.log("Reward Sent Natively");
+                      addToast("SMS Error: " + res.error + (res.details ? " | " + res.details : ""), 'error');
                    }
-               }).catch(e => alert("Network Crash: " + e.message));
+               }).catch(e => addToast("Network Crash: " + e.message, 'error'));
            } else {
                // Untracked fallback dummy-ping
                supabase.from('clients').insert([{
@@ -107,12 +107,11 @@ const ReviewCapture = () => {
             });
 
             if (error) {
-                console.error("RPC Error:", error);
-                alert("Failed to save feedback securely.");
+                addToast("Failed to save feedback securely.", "error");
             }
         }
     } catch(err) {
-        console.error("Save Error:", err);
+        addToast("Critical structural failure submitting feedback.", "error");
     }
     
     setTimeout(() => {

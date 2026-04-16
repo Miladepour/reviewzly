@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 
 const SmsHub = () => {
+  const addToast = useToast();
   const [loading, setLoading] = useState(true);
   const [credits, setCredits] = useState(0);
   const [senderId, setSenderId] = useState('');
@@ -41,13 +43,13 @@ const SmsHub = () => {
         .limit(50);
         
       if (logsErr) {
-        console.warn("SMS Logs not initialized yet:", logsErr.message);
+        addToast("SMS Logs not initialized yet: " + logsErr.message, "warning");
       } else if (logsData) {
         setLogs(logsData);
       }
 
     } catch (error) {
-      console.error(error);
+      addToast("Error fetching network statistics.", "error");
     } finally {
       setLoading(false);
     }

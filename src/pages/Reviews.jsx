@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 const Reviews = () => {
+  const addToast = useToast();
   const [ratingFilter, setRatingFilter] = useState('All');
   
   const [reviews, setReviews] = useState([]);
@@ -37,7 +39,7 @@ const Reviews = () => {
            setReviews(mappedReviews);
         }
       } catch (e) {
-        console.error(e);
+        addToast("Failed to fetch public reviews natively.", "error");
       } finally {
         setIsLoading(false);
       }

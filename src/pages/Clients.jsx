@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 const Clients = () => {
+  const addToast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   
@@ -70,7 +72,7 @@ const Clients = () => {
           } else { throw error; }
       } catch (err) {
           displayNotice('Error saving client edits', true);
-          console.error(err);
+          addToast("Failed to fetch CRM dataset payload.", "error");
       } finally { setIsSavingEdit(false); }
   };
   
@@ -140,7 +142,7 @@ const Clients = () => {
 
       } catch (error) {
           displayNotice('Error saving client. Please try again.', true);
-          console.error(error);
+          addToast("Failed to write to central CRM block.", "error");
       } finally {
           setIsAdding(false);
       }
@@ -236,7 +238,7 @@ const Clients = () => {
 
     } catch (e) {
         displayNotice("Error parsing CSV format.", true);
-        console.error(e);
+        addToast("Error loading target client record.", "error");
     } finally {
         setIsImporting(false);
     }
@@ -256,7 +258,7 @@ const Clients = () => {
 
         if (data) setClients(data);
       } catch (e) {
-        console.error(e);
+        addToast("Failed to generate communication array.", "error");
       } finally {
         setIsLoading(false);
       }
@@ -272,7 +274,7 @@ const Clients = () => {
             setClients(prev => prev.filter(c => c.id !== clientId));
         } else {
             displayNotice("Error deleting client.", true);
-            console.error(error);
+            addToast("Failed to permanently delete client record.", "error");
         }
     }
   };

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 
 const Profile = () => {
   const navigate = useNavigate();
+  const addToast = useToast();
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,7 +53,7 @@ const Profile = () => {
           }
         }
       } catch (error) {
-        console.error("Error fetching profile data:", error);
+        addToast("Error fetching profile data securely.", "error");
       } finally {
         setIsLoading(false);
       }
@@ -95,7 +97,7 @@ const Profile = () => {
       setTimeout(() => setSaveMessage(''), 3000);
       
     } catch (err) {
-      console.error(err);
+      addToast("Critical sync failure patching profile metadata.", "error");
       setSaveMessage('Error saving profile. Try again.');
     } finally {
       setIsSaving(false);
@@ -115,8 +117,7 @@ const Profile = () => {
       await supabase.auth.signOut();
       navigate('/login');
     } catch (err) {
-      console.error("Failed to delete account:", err);
-      alert("Failed to delete account. Ensure the backend SQL script was executed.");
+      addToast("Failed to delete account. Ensure the backend SQL script was executed. Data preserved.", "error");
       setIsDeleting(false);
     }
   };

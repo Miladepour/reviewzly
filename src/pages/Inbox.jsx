@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 const MOCK_DIRECTORY = [
   { name: 'Alice Springs', phone: '+1 (555) 123-4567' },
@@ -7,6 +8,7 @@ const MOCK_DIRECTORY = [
 ];
 
 const Inbox = () => {
+  const addToast = useToast();
   const [conversations, setConversations] = useState([]);
   
   // Chat Notification State
@@ -82,7 +84,7 @@ const Inbox = () => {
         if (merged.length > 0 && !activeId) setActiveId(merged[0].id);
       }
     } catch (e) {
-      console.error(e);
+      addToast("Failed to fetch inbox threads natively.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -124,7 +126,7 @@ const Inbox = () => {
             return;
         }
     } catch (err) {
-        console.error(err);
+        addToast("Error fetching client data for conversation.", "error");
         showChatToast("Error connecting to secure dispatch edge server.");
         return;
     }
@@ -142,7 +144,7 @@ const Inbox = () => {
       // Re-fetch to guarantee sync with DB
       fetchInbox();
     } else {
-      console.error(error);
+      addToast("System failure establishing real-time WebSockets.", "error");
     }
   };
 
@@ -188,7 +190,7 @@ const Inbox = () => {
     }]).select().single();
 
     if (clientError) {
-      console.error(clientError);
+      addToast("Failed to retrieve directory details.", "error");
       return;
     }
 

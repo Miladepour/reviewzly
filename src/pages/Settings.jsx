@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 const Settings = () => {
+  const addToast = useToast();
   const [activeTab, setActiveTab] = useState('workspace');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
@@ -66,7 +68,7 @@ const Settings = () => {
       
       setSaveMessage('Platform settings saved securely to Database.');
     } catch (err) {
-      console.error(err);
+      addToast("Failed to retrieve workspace configuration arrays.", "error");
       setSaveMessage(err.message || 'Error saving configurations.');
     } finally {
       setIsSaving(false);

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 import PublicFooter from '../components/PublicFooter';
 
 const Login = () => {
+  const addToast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
@@ -33,7 +35,7 @@ const Login = () => {
         // VERIFICATION LAYER 1: Anti-Farming Database Scan
         const { data: phoneExists, error: phoneErr } = await supabase.rpc('check_phone_exists', { submitted_phone: contactPhone });
         if (phoneErr) {
-          console.error("RPC Phone Check Error:", phoneErr);
+          addToast("RPC Phone Check Error: " + phoneErr.message, "error");
           throw new Error("Unable to connect securely to the verification matrix.");
         }
         if (phoneExists) {
@@ -43,7 +45,7 @@ const Login = () => {
         // VERIFICATION LAYER 2: Admin Gateway Code
         const { data: isValid, error: rpcError } = await supabase.rpc('verify_invite_code', { submitted_code: inviteCode });
         if (rpcError) {
-          console.error("RPC Error:", rpcError);
+          addToast("RPC Error: " + rpcError.message, "error");
           throw new Error("Unable to verify code with the server. Please try again.");
         }
         if (!isValid) {

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 const Layout = () => {
   const navigate = useNavigate();
+  const addToast = useToast();
   const [isInitializing, setIsInitializing] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
@@ -26,7 +28,7 @@ const Layout = () => {
         if (error && error.code === 'PGRST116') {
           // 'PGRST116' is the exact Postgres error code meaning "no rows returned". 
           // This means they have an Auth token, but no business row! We must heal it.
-          console.log("Healing missing Business Profile from Auth Metadata...");
+          addToast("Healing missing Business Profile from Auth Metadata...", "info");
           const meta = session.user.user_metadata || {};
           const bizName = meta.business_name || session.user.email.split('@')[0] + "'s Agency";
           const bizCountry = meta.business_country || 'UK';
@@ -41,7 +43,7 @@ const Layout = () => {
             }]);
             
           if (insertError) {
-            console.error("Failed to heal business profile:", insertError.message);
+            addToast("Failed to heal business profile: " + insertError.message, "error");
           }
         }
         
@@ -54,7 +56,7 @@ const Layout = () => {
         if (adminData) setIsSuperAdmin(true);
         
       } catch (err) {
-        console.error("Critical error mapping session to business profile", err);
+        addToast("Critical error mapping session to business profile.", "error");
       } finally {
         setIsInitializing(false);
       }

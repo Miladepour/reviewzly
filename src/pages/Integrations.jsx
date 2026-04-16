@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 const Integrations = () => {
+  const addToast = useToast();
   const [activeTab, setActiveTab] = useState('guide');
   
   // Connect natively to Postgres Database
@@ -115,7 +117,7 @@ const Integrations = () => {
                      />
                      <button type="button" className="btn-primary" onClick={() => {
                         navigator.clipboard.writeText(`${window.location.origin}/api/w/v`);
-                        alert('Short Webhook Endpoint Copied!');
+                        addToast('Short Webhook Endpoint Copied!', 'success');
                      }} style={{ padding: '0 1.5rem' }}>Copy URL</button>
                   </div>
 
@@ -129,7 +131,7 @@ const Integrations = () => {
                      />
                      <button type="button" className="btn-primary" onClick={() => {
                         navigator.clipboard.writeText(businessId);
-                        alert('Router UUID Secret Copied!');
+                        addToast('Router UUID Secret Copied!', 'success');
                      }} style={{ padding: '0 1.5rem', backgroundColor: 'var(--surface-container-high)', color: 'var(--on-surface)' }}>Copy Secret</button>
                   </div>
                 </div>

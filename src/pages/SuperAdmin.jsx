@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 const SuperAdmin = () => {
   const navigate = useNavigate();
+  const addToast = useToast();
   const [loading, setLoading] = useState(true);
   const [auditLogs, setAuditLogs] = useState([]);
   const [totalBusinesses, setTotalBusinesses] = useState(0);
@@ -27,7 +29,7 @@ const SuperAdmin = () => {
           .single();
 
         if (adminErr || !adminCheck) {
-          console.warn("Unauthorized access attempt to Super Admin panel.");
+          addToast("Unauthorized access attempt to Super Admin panel tracked.", "warning");
           return navigate('/dashboard'); // Boot them out instantly
         }
 
@@ -53,13 +55,13 @@ const SuperAdmin = () => {
           .order('created_at', { ascending: false });
 
         if (uErr) {
-          console.error("Query Error on businesses:", uErr);
+          addToast("Admin Matrix query error tracking businesses.", "error");
         }
 
         if (usersData) setActiveUsers(usersData);
 
       } catch (err) {
-        console.error("Error loading Super Admin panel:", err);
+        addToast("Error loading Super Admin panel network connection.", "error");
       } finally {
         setLoading(false);
       }

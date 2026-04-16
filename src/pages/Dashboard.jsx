@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useToast } from '../contexts/ToastContext';
 
 const Dashboard = () => {
+  const addToast = useToast();
   // Local Form State
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -14,6 +17,11 @@ const Dashboard = () => {
   // Live Database Analytics State
   const [clients, setClients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Carousel State & Navigation
+  const navigate = useNavigate();
+  const [feedbackIndex, setFeedbackIndex] = useState(0);
+  const [publicIndex, setPublicIndex] = useState(0);
   
   // SMS API State
   const [smsBalance, setSmsBalance] = useState('Syncing...');
@@ -66,7 +74,7 @@ const Dashboard = () => {
                       setGoogleStats({ rating: gData.rating, total_reviews: gData.total_reviews });
                       if (gData.reviews) setGoogleReviews(gData.reviews);
                   }
-              }).catch(e => console.error("Background Cache Update Failed:", e));
+              }).catch(e => addToast("Background Cache Update Failed", "error"));
           }
 
       } else {
@@ -74,7 +82,7 @@ const Dashboard = () => {
       }
 
     } catch (e) {
-      console.error(e);
+      addToast("Failed to fetch dashboard intelligence.", "error");
       setMessage(`Network Sync Error: Could not reliably reach Database. Please check connection.`);
       setTimeout(() => setMessage(''), 6000);
     } finally {
@@ -141,10 +149,10 @@ const Dashboard = () => {
                  dispatchLogText = `[AUTO-DISPATCH BLOCKED] Insufficient SMS Credits.`;
              } else {
                  dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
-                 console.warn("API failed to deliver the automated payload.");
+                 addToast("API failed to deliver the automated payload.", "warning");
              }
           } catch(err) {
-             console.error("Dispatch Error:", err);
+             addToast("Dispatch Error targeting API payload: " + err.message, "error");
              dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
           }
       }
@@ -169,8 +177,7 @@ const Dashboard = () => {
 
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      setMessage('Error saving client. Please try again.');
-      console.error(error);
+      addToast('Error saving client. Please try again.', 'error');
     } finally {
       setIsSending(false);
     }
@@ -236,13 +243,30 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div style={{ padding: '2rem', backgroundColor: '#e8f5e9' }}>
-            <p className="val-sub" style={{ color: '#2e7d32' }}>Platform SMS Balance</p>
-            <div className="flex justify-between items-center mt-2 flex-wrap gap-2">
-              <h2 className="text-display-xl" style={{ fontSize: '2.5rem', color: '#1b5e20' }}>{smsBalance}</h2>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#c8e6c9', color: '#1b5e20', padding: '0.25rem 0.6rem', borderRadius: '0.5rem' }}>
+          <div style={{ padding: '2rem', backgroundColor: '#e8f5e9', display: 'flex', justifyContent: 'space-between', alignItems: 'stretch' }}>
+            <div className="flex flex-col justify-between">
+              <p className="val-sub" style={{ color: '#2e7d32' }}>Platform SMS Balance</p>
+              <h2 className="text-display-xl" style={{ fontSize: '3rem', color: '#1b5e20', lineHeight: 1 }}>{smsBalance}</h2>
+            </div>
+            
+            <div className="flex flex-col gap-2 items-end justify-center">
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#c8e6c9', color: '#1b5e20', padding: '0.35rem 0', borderRadius: '0.5rem', textAlign: 'center', width: '100px' }}>
                  {smsBalance === 'Syncing...' ? 'Pending' : 'Live System'}
               </span>
+              
+              {smsBalance !== 'Syncing...' && smsBalance !== 'No Data' && Number(smsBalance) < 50 && (
+                 <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#dc2626', color: 'white', padding: '0.35rem 0', borderRadius: '0.5rem', textAlign: 'center', width: '100px' }}>
+                   Low Credit
+                 </span>
+              )}
+              
+              <button 
+                 type="button" 
+                 style={{ backgroundColor: '#2e7d32', color: 'white', border: 'none', padding: '0.35rem 0', fontSize: '0.75rem', fontWeight: 700, borderRadius: '0.5rem', cursor: 'pointer', textAlign: 'center', width: '100px' }} 
+                 onClick={() => { /* Placeholder for future Stripe/Billing Hookup */ }}
+              >
+                 Top-Up Credit
+              </button>
             </div>
           </div>
 
@@ -296,7 +320,8 @@ const Dashboard = () => {
               onChange={(e) => setClientDob(e.target.value)}
             />
           </div>
-          <div style={{ flex: '0 1 auto', minWidth: '120px' }}>
+          <div className="flex flex-col gap-2" style={{ flex: '0 1 auto', minWidth: '120px' }}>
+            <label className="text-label-sm" style={{ visibility: 'hidden' }}>Submit</label>
             <button type="submit" className="btn-primary" style={{ width: '100%', padding: '0.85rem' }} disabled={isSending}>
                 {isSending ? 'Sending...' : 'Add Client'}
             </button>
@@ -305,135 +330,149 @@ const Dashboard = () => {
         {message && <p className="mt-4 tag-light-green" style={{ fontSize: '0.85rem', width: '100%', justifyContent: 'center' }}>{message}</p>}
       </div>
 
-      {/* 2 Column Layout */}
-      <div className="mockup-grid">
+      {/* 2 Column Layout - Carousels */}
+      <div className="mockup-grid mb-8">
         
-        {/* LEFT COLUMN */}
+        {/* LEFT COLUMN: Recent Feedback Carousel */}
         <div className="flex flex-col gap-6">
-          
-          {/* Sentiment Graph Block */}
-          <div className="card bg-soft">
+          <div className="card" style={{ flex: 1 }}>
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-title-lg">Sentiment Spread (Account Lifetime)</h3>
-              <a href="#" className="tag-green-text">View Analytics</a>
-            </div>
-
-            <p className="text-body mb-4" style={{ fontSize: '0.9rem' }}>
-              Out of {totalRatings} recorded reviews, <strong>{googlePercent}%</strong> were routed to Google My Business as 5-star public ratings. The remaining {internalPercent}% were caught internally for service recovery.
-            </p>
-
-            <div className="flex flex-col gap-4 max-w-lg mb-4">
-              <div>
-                <div className="progress-label">
-                  <span style={{ fontWeight: 700 }}>Google Redirects (5-Star)</span>
-                  <span style={{ color: 'var(--primary)' }}>{fiveStarGoogleCount}</span>
-                </div>
-                <div className="progress-bar-bg" style={{ height: '12px' }}>
-                  <div className="progress-bar-fill" style={{ width: `${googlePercent}%`, backgroundColor: 'var(--primary)' }}></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="progress-label">
-                  <span style={{ fontWeight: 700, color: '#7a3a00' }}>Internal Feedback Caught</span>
-                  <span style={{ color: '#7a3a00' }}>{internallyCaughtCount}</span>
-                </div>
-                <div className="progress-bar-bg" style={{ height: '12px', backgroundColor: '#ffdcc8' }}>
-                  <div className="progress-bar-fill" style={{ width: `${internalPercent}%`, backgroundColor: '#ff8c42' }}></div>
-                </div>
-              </div>
+              <h3 className="text-title-md">Recent Feedback Queue</h3>
+              <a href="#" onClick={(e) => { e.preventDefault(); navigate('/dashboard/reviews'); }} className="tag-green-text" style={{ fontSize: '0.8rem' }}>View All</a>
             </div>
             
-            <div className="mt-6 flex justify-between items-end">
-              <div className="bar-chart-container" style={{ flex: 1, height: '80px', marginRight: '2rem' }}>
-                <div className="bar-wrapper"><div className="bar highlight" style={{ height: '30%' }}></div></div>
-                <div className="bar-wrapper"><div className="bar highlight" style={{ height: '50%' }}></div></div>
-                <div className="bar-wrapper"><div className="bar highlight" style={{ height: '80%' }}></div></div>
-                <div className="bar-wrapper"><div className="bar highlight" style={{ height: '65%' }}></div></div>
-                <div className="bar-wrapper"><div className="bar highlight" style={{ height: '90%' }}></div></div>
-                <div className="bar-wrapper"><div className="bar highlight" style={{ height: '40%' }}></div></div>
-                <div className="bar-wrapper"><div className="bar highlight" style={{ height: '70%' }}></div></div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <p className="val-sub">Review Volume</p>
-                <p className="val-main" style={{ fontSize: '1.5rem' }}>{totalRatings}</p>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* RIGHT COLUMN */}
-        <div className="flex flex-col gap-6">
-          
-          <div className="card">
-            <h3 className="text-title-md mb-6">Recent Feedback Queue</h3>
-            
-            <div className="flex flex-col gap-4">
-              
-              {recentFeedbackList.length > 0 ? recentFeedbackList.map((client) => {
+            <div className="flex flex-col gap-4 relative">
+              {ratedClients.length > 0 ? (() => {
+                const client = ratedClients[feedbackIndex];
                 const isGoogle = client.rating_status.includes('5-Star');
                 return (
                   <div key={client.id} style={{ padding: '1.25rem', backgroundColor: isGoogle ? 'var(--surface-container-low)' : '#fff9f5', borderRadius: '1rem', border: isGoogle ? 'none' : '1px solid #ffdcc8' }}>
                     <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="text-title-sm" style={{ fontWeight: 700 }}>{client.name}</h4>
-                        <p className="text-label-sm mt-1">{new Date(client.created_at).toLocaleDateString()}</p>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-title-md" style={{ color: isGoogle ? 'var(--primary)' : '#ff8c42' }}>
-                          {'★'.repeat(parseInt(client.rating_status?.split('-')[0]) || 3)}{'☆'.repeat(5 - (parseInt(client.rating_status?.split('-')[0]) || 3))}
-                        </span>
-                        <span style={{ 
-                          fontSize: '0.6rem', fontWeight: 700, 
-                          backgroundColor: isGoogle ? '#E8F5E9' : '#ffdcc8', 
-                          color: isGoogle ? 'var(--primary)' : '#7a3a00', 
-                          padding: '0.2rem 0.4rem', borderRadius: '0.5rem', marginTop: '0.25rem', textTransform: 'uppercase' 
-                        }}>
-                          {isGoogle ? 'Google Redirect' : 'Internal Caught'}
-                        </span>
-                      </div>
+                       <div>
+                         <h4 className="text-title-sm" style={{ fontWeight: 700 }}>{client.name}</h4>
+                         <p className="text-label-sm mt-1">{new Date(client.created_at).toLocaleDateString()}</p>
+                       </div>
+                       <div className="flex flex-col items-end">
+                         <span className="text-title-md" style={{ color: isGoogle ? 'var(--primary)' : '#ff8c42' }}>
+                           {'★'.repeat(parseInt(client.rating_status?.split('-')[0]) || 3)}{'☆'.repeat(5 - (parseInt(client.rating_status?.split('-')[0]) || 3))}
+                         </span>
+                         <span style={{ 
+                           fontSize: '0.6rem', fontWeight: 700, 
+                           backgroundColor: isGoogle ? '#E8F5E9' : '#ffdcc8', 
+                           color: isGoogle ? 'var(--primary)' : '#7a3a00', 
+                           padding: '0.2rem 0.4rem', borderRadius: '0.5rem', marginTop: '0.25rem', textTransform: 'uppercase' 
+                         }}>
+                           {isGoogle ? 'Google Redirect' : 'Internal Caught'}
+                         </span>
+                       </div>
                     </div>
                   </div>
                 )
-              }) : (
+              })() : (
                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
                   Awaiting your first review capture...
                 </div>
               )}
-            </div>
-            
-            <button className="btn-primary" style={{ width: '100%', marginTop: '1.5rem', backgroundColor: 'transparent', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)' }}>
-              Refresh History
-            </button>
-          </div>
 
-          {/* GOOGLE REVIEWS INJECTION */}
-          <div className="card">
-            <h3 className="text-title-md mb-6">Recent Public Reviews</h3>
-            <div className="flex flex-col gap-4">
-              {googleReviews.map((r, i) => (
-                <div key={i} style={{ padding: '1.25rem', backgroundColor: 'var(--surface-container-low)', borderRadius: '1rem' }}>
-                  <div className="flex justify-between items-start mb-2">
-                     <div>
-                        <h4 className="text-title-sm" style={{ fontWeight: 700 }}>{r.author_name}</h4>
-                        <p className="text-label-sm mt-1">{r.relative_time_description}</p>
-                     </div>
-                     <span className="text-title-md" style={{ color: 'var(--primary)' }}>
-                        {Array.from({ length: Math.round(r.rating || 5) }).map((_, i) => '★').join('')}
-                     </span>
-                  </div>
-                  {r.text && <p className="text-body mt-2" style={{ fontSize: '0.85rem', opacity: 0.9 }}>"{r.text}"</p>}
+              {/* Slider Controls */}
+              {ratedClients.length > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-2">
+                   <button type="button" className="btn-secondary" style={{ padding: '0.5rem' }} onClick={() => setFeedbackIndex(prev => prev > 0 ? prev - 1 : ratedClients.length - 1)}>←</button>
+                   <span style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>{feedbackIndex + 1} of {ratedClients.length}</span>
+                   <button type="button" className="btn-secondary" style={{ padding: '0.5rem' }} onClick={() => setFeedbackIndex(prev => prev < ratedClients.length - 1 ? prev + 1 : 0)}>→</button>
                 </div>
-              ))}
-              {googleReviews.length === 0 && (
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Recent Public Reviews Carousel */}
+        <div className="flex flex-col gap-6">
+          <div className="card" style={{ flex: 1 }}>
+            <h3 className="text-title-md mb-6">Recent Public Reviews</h3>
+            <div className="flex flex-col gap-4 relative">
+              {googleReviews.length > 0 ? (() => {
+                  const r = googleReviews[publicIndex];
+                  return (
+                    <div key={publicIndex} style={{ padding: '1.25rem', backgroundColor: 'var(--surface-container-low)', borderRadius: '1rem' }}>
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                           <h4 className="text-title-sm" style={{ fontWeight: 700 }}>{r.author_name}</h4>
+                           <p className="text-label-sm mt-1">{r.relative_time_description}</p>
+                        </div>
+                        <span className="text-title-md" style={{ color: 'var(--primary)' }}>
+                           {Array.from({ length: Math.round(r.rating || 5) }).map((_, i) => '★').join('')}
+                        </span>
+                      </div>
+                      {r.text && <p className="text-body mt-2" style={{ fontSize: '0.85rem', opacity: 0.9 }}>"{r.text}"</p>}
+                    </div>
+                  );
+              })() : (
                   <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
                     Awaiting public review fetch payload...
                   </div>
               )}
+
+              {/* Slider Controls */}
+              {googleReviews.length > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-2">
+                   <button type="button" className="btn-secondary" style={{ padding: '0.5rem' }} onClick={() => setPublicIndex(prev => prev > 0 ? prev - 1 : googleReviews.length - 1)}>←</button>
+                   <span style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>{publicIndex + 1} of {googleReviews.length}</span>
+                   <button type="button" className="btn-secondary" style={{ padding: '0.5rem' }} onClick={() => setPublicIndex(prev => prev < googleReviews.length - 1 ? prev + 1 : 0)}>→</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* FULL WIDTH: Sentiment Spread Container */}
+      <div className="card bg-soft mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-title-lg">Sentiment Spread (Account Lifetime)</h3>
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/dashboard/reviews'); }} className="tag-green-text">View Analytics</a>
+        </div>
+
+        <p className="text-body mb-4" style={{ fontSize: '0.9rem' }}>
+          Out of {totalRatings} recorded reviews, <strong>{googlePercent}%</strong> were routed to Google My Business as 5-star public ratings. The remaining {internalPercent}% were caught internally for service recovery.
+        </p>
+
+        <div className="flex flex-col gap-4 max-w-lg mb-4">
+          <div>
+            <div className="progress-label">
+              <span style={{ fontWeight: 700 }}>Google Redirects (5-Star)</span>
+              <span style={{ color: 'var(--primary)' }}>{fiveStarGoogleCount}</span>
+            </div>
+            <div className="progress-bar-bg" style={{ height: '12px' }}>
+              <div className="progress-bar-fill" style={{ width: `${googlePercent}%`, backgroundColor: 'var(--primary)' }}></div>
             </div>
           </div>
 
+          <div>
+            <div className="progress-label">
+              <span style={{ fontWeight: 700, color: '#7a3a00' }}>Internal Feedback Caught</span>
+              <span style={{ color: '#7a3a00' }}>{internallyCaughtCount}</span>
+            </div>
+            <div className="progress-bar-bg" style={{ height: '12px', backgroundColor: '#ffdcc8' }}>
+              <div className="progress-bar-fill" style={{ width: `${internalPercent}%`, backgroundColor: '#ff8c42' }}></div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-6 flex justify-between items-end">
+          <div className="bar-chart-container" style={{ flex: 1, height: '80px', marginRight: '2rem' }}>
+            <div className="bar-wrapper"><div className="bar highlight" style={{ height: '30%' }}></div></div>
+            <div className="bar-wrapper"><div className="bar highlight" style={{ height: '50%' }}></div></div>
+            <div className="bar-wrapper"><div className="bar highlight" style={{ height: '80%' }}></div></div>
+            <div className="bar-wrapper"><div className="bar highlight" style={{ height: '65%' }}></div></div>
+            <div className="bar-wrapper"><div className="bar highlight" style={{ height: '90%' }}></div></div>
+            <div className="bar-wrapper"><div className="bar highlight" style={{ height: '40%' }}></div></div>
+            <div className="bar-wrapper"><div className="bar highlight" style={{ height: '70%' }}></div></div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p className="val-sub">Review Volume</p>
+            <p className="val-main" style={{ fontSize: '1.5rem' }}>{totalRatings}</p>
+          </div>
         </div>
       </div>
     </>
