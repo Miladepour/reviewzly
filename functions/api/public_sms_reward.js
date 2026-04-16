@@ -32,7 +32,8 @@ export async function onRequestPost({ request, env }) {
     });
 
     if (!rpcResponse.ok) {
-        return new Response(JSON.stringify({ error: "Internal Gateway Refusals." }), { status: 500, headers: { 'Content-Type': 'application/json' }});
+        const errorText = await rpcResponse.text();
+        return new Response(JSON.stringify({ error: "Internal Gateway Refusals", details: errorText }), { status: 500, headers: { 'Content-Type': 'application/json' }});
     }
 
     const rpcData = await rpcResponse.json();
