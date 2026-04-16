@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import PublicFooter from '../components/PublicFooter';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -77,7 +78,8 @@ const Login = () => {
   };
 
   return (
-    <div className="auth-container">
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="auth-container" style={{ flex: 1 }}>
       {/* Left Branding Pane */}
       <div className="auth-left">
         <div style={{ zIndex: 10 }}>
@@ -192,6 +194,8 @@ const Login = () => {
 
         </div>
       </div>
+    </div>
+    <PublicFooter />
     </div>
   );
 };

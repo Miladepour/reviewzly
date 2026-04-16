@@ -180,16 +180,7 @@ const Layout = () => {
         {/* Page Content Rendered Here */}
         <Outlet />
 
-        {/* Persistent Footer Area */}
-        <div className="flex justify-between items-center mt-12 pt-8" style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--on-surface-variant)', borderTop: '1px solid var(--surface-container-low)' }}>
-          <div className="flex items-center gap-2">
-            SYSTEM STATUS: OPTIMAL
-            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--primary-fixed)' }}></span>
-          </div>
-          <div className="flex gap-4">
-            <span>V3.0.0-SUPABASE-RLS</span>
-          </div>
-        </div>
+
 
 
 

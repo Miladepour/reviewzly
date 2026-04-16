@@ -11,6 +11,7 @@ import Settings from './pages/Settings';
 import HelpCenter from './pages/HelpCenter';
 import Login from './pages/Login';
 import Landing from './pages/Landing';
+import Terms from './pages/Terms';
 import Profile from './pages/Profile';
 import SuperAdmin from './pages/SuperAdmin';
 import { supabase } from './supabaseClient';
@@ -61,6 +62,7 @@ const App = () => {
         {/* PUBLIC ROUTES */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/terms" element={<Terms />} />
 
         {/* SECURE ROUTES: Wrapped in ProtectedRoute Interceptor */}
         <Route path="/dashboard" element={

@@ -18,6 +18,9 @@ const Dashboard = () => {
   // SMS API State
   const [smsBalance, setSmsBalance] = useState('Syncing...');
 
+  // Google Cache State
+  const [googleStats, setGoogleStats] = useState({ rating: 0.0, total_reviews: 0 });
+
   const fetchDashboardData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -34,10 +37,34 @@ const Dashboard = () => {
       }
       
       // Secondary Fetch: Native Database Credits
-      const { data: businessData } = await supabase.from('businesses').select('sms_credits').eq('id', session.user.id).single();
+      const { data: businessData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
       
       if (businessData) {
           setSmsBalance(businessData.sms_credits || 0);
+
+          // Stale-While-Revalidate Google Caching Algorithm
+          setGoogleStats({ rating: businessData.google_rating || 0.0, total_reviews: businessData.google_reviews_count || 0 });
+
+          const diff = Date.now() - new Date(businessData.google_last_synced_at || 0).getTime();
+          const hoursPassed = diff / (1000 * 60 * 60);
+
+          if (hoursPassed >= 24 && businessData.name) {
+              fetch('/api/sync_google', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ businessName: businessData.name })
+              }).then(r => r.json()).then(gData => {
+                  if (gData.rating) {
+                      supabase.from('businesses').update({
+                          google_rating: gData.rating,
+                          google_reviews_count: gData.total_reviews,
+                          google_last_synced_at: new Date().toISOString()
+                      }).eq('id', session.user.id).then(()=>{});
+                      setGoogleStats({ rating: gData.rating, total_reviews: gData.total_reviews });
+                  }
+              }).catch(e => console.error("Background Cache Update Failed:", e));
+          }
+
       } else {
           setSmsBalance('No Data');
       }
@@ -191,11 +218,14 @@ const Dashboard = () => {
           </div>
           
           <div style={{ padding: '2rem', borderRight: '1px solid var(--outline-variant)' }}>
-            <p className="val-sub">Global Rating Tracker</p>
+            <p className="val-sub">Public Google Rating</p>
             <div className="flex justify-between items-center mt-2 flex-wrap gap-2">
-              <h2 className="text-display-xl" style={{ fontSize: '2.5rem' }}>{totalRatings > 0 ? '4.8' : '0.0'}</h2>
-              <div className="flex text-title-lg" style={{ color: 'var(--primary)', letterSpacing: '2px' }}>
-                ★★★★★
+              <h2 className="text-display-xl" style={{ fontSize: '2.5rem' }}>{Number(googleStats.rating).toFixed(1)}</h2>
+              <div className="flex flex-col text-right">
+                <div className="flex justify-end text-title-lg" style={{ color: 'var(--primary)', letterSpacing: '2px' }}>
+                  {Array.from({ length: Math.round(googleStats.rating || 5) }).map((_, i) => '★').join('')}
+                </div>
+                <span className="text-label-sm" style={{ color: 'var(--on-surface-variant)' }}>{googleStats.total_reviews} Reviews</span>
               </div>
             </div>
           </div>

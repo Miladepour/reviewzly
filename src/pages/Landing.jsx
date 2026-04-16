@@ -1,27 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import PublicFooter from '../components/PublicFooter';
+import PublicNavbar from '../components/PublicNavbar';
 
 const Landing = () => {
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--surface)', minHeight: '100vh' }}>
       
-      {/* Public Top Navbar */}
-      <nav className="flex justify-between items-center" style={{ padding: '1.5rem 5%', borderBottom: '1px solid var(--outline-variant)', backgroundColor: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ width: '150px' }}>
-          <img src="/logo.png" alt="Reviewzly Logo" style={{ width: '100%', height: 'auto' }} />
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <Link to="/dashboard" className="flex items-center gap-2" style={{ color: 'var(--on-surface-variant)', fontWeight: 600, textDecoration: 'none', padding: '0.5rem 1rem' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-            Sign In
-          </Link>
-          <Link to="/dashboard" className="btn-primary" style={{ textDecoration: 'none' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-            Register Now
-          </Link>
-        </div>
-      </nav>
+      <PublicNavbar />
 
       {/* Hero Section */}
       <main className="flex-1 flex flex-col items-center text-center justify-center relative" style={{ padding: '6rem 5%', overflow: 'hidden' }}>
@@ -105,22 +91,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer style={{ padding: '4rem 5%', borderTop: '1px solid var(--outline-variant)', backgroundColor: 'var(--surface)' }}>
-        <div className="flex flex-col md-flex-row justify-between items-center gap-4" style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div>
-            <div style={{ width: '120px', marginBottom: '1rem' }}>
-              <img src="/logo.png" alt="Reviewzly Logo" style={{ width: '100%', height: 'auto' }} />
-            </div>
-            <p className="text-label-sm" style={{ opacity: 0.6, textTransform: 'none' }}>© 2026 Reviewzly Pro. All rights reserved.</p>
-          </div>
-          <div className="flex gap-6">
-            <a href="#" className="text-label-sm" style={{ textDecoration: 'none' }}>Privacy</a>
-            <a href="#" className="text-label-sm" style={{ textDecoration: 'none' }}>Terms</a>
-            <a href="#" className="text-label-sm" style={{ textDecoration: 'none' }}>Contact Support</a>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
 
     </div>
   );
