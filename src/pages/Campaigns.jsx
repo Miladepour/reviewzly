@@ -125,7 +125,7 @@ const Campaigns = () => {
               let finalSms = customMessage
                   .replace(/{{business_name}}/g, businessData.name || 'Our Team')
                   .replace(/{{client_name}}/g, client.name || 'there')
-                  .replace(/{{review_link}}/g, `${window.location.origin}/r/${businessData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
+                  .replace(/{{review_link}}/g, `${window.location.origin}/r/${client.short_code}`);
 
               let dispatchLogText = '';
               const destPhone = client.phone.replace(/[^0-9]/g, '');

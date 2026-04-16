@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 const ReviewCapture = () => {
-  const { businessName } = useParams();
+  const { businessName: shortCode } = useParams();
   
   const [businessInfo, setBusinessInfo] = useState(null);
+  const [clientInfo, setClientInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [rating, setRating] = useState(0);
@@ -19,45 +20,56 @@ const ReviewCapture = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchBusiness = async () => {
+    const fetchProfile = async () => {
       try {
-        if (!businessName) return;
-        // Reconstruct the name from the slug (e.g. "say-click-limited" -> "say click limited")
-        const searchTerm = businessName.replace(/-/g, ' ');
+        if (!shortCode) return;
         
-        // Attempt case-insensitive match against the businesses table
+        // Lookup the specific client tracking code
         const { data, error } = await supabase
-          .from('businesses')
-          .select('*')
-          .ilike('name', searchTerm)
+          .from('clients')
+          .select('*, businesses(*)')
+          .eq('short_code', shortCode)
           .single();
 
-        if (data && !error) {
-          setBusinessInfo(data);
+        if (data && !error && data.businesses) {
+          setBusinessInfo(data.businesses);
+          setClientInfo(data);
+          // Pre-fill internal form for faster submission
+          setName(data.name || '');
+          setPhone(data.phone || '');
         }
       } catch (err) {
-        console.error("Failed to load business profile:", err);
+        console.error("Failed to load tracking profile:", err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchBusiness();
-  }, [businessName]);
+    fetchProfile();
+  }, [shortCode]);
 
   const handleRatingClick = async (selectedRating) => {
     setRating(selectedRating);
     setTimeout(async () => {
       if (selectedRating === 5) {
         setStep('1A'); // Google Flow
-        // Because they clicked 5-Star, we'll optimistically record an Anonymous 5-Star Intent in their clients database to power Dashboard analytics!
         if (businessInfo) {
-           supabase.from('clients').insert([{
-              business_id: businessInfo.id,
-              name: 'Anonymous 5-Star Intent',
-              phone: 'Unknown',
-              tags: ['Public Review Link'],
-              rating_status: '5-Star Redirect'
-           }]).then(()=>{});
+           if (clientInfo) {
+               // Execute the Secure Cloudflare Proxy to physically text them the Google Link
+               fetch('/api/public_sms_reward', {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ uid: clientInfo.id })
+               }).then(r => r.json()).then(res => console.log(res)).catch(e => console.error(e));
+           } else {
+               // Untracked fallback dummy-ping
+               supabase.from('clients').insert([{
+                  business_id: businessInfo.id,
+                  name: 'Anonymous 5-Star Intent',
+                  phone: 'Unknown',
+                  tags: ['Public Review Link'],
+                  rating_status: '5-Star Redirect'
+               }]).then(()=>{});
+           }
         }
       } else {
         setStep('1B'); // Internal Flow
@@ -175,22 +187,11 @@ const ReviewCapture = () => {
             <p className="text-body mb-8" style={{ fontSize: '1.05rem', lineHeight: 1.5, textAlign: 'left', padding: '0 0.5rem' }}>
               We are so thrilled you had a 5-star experience! We rely heavily on <strong>Google Reviews</strong> to grow our local business.
               <br/><br/>
-              It would mean the absolute world to us if you could paste your rating on our public page!
+              <b>We have just sent you an SMS</b> containing our direct Google Link. It means the absolute world to us if you could post your rating there!
             </p>
             
-            <a 
-              href={businessInfo?.gmb_url || "https://google.com"} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="btn-primary" 
-              style={{ padding: '1.25rem 2rem', width: '100%', display: 'flex', justifyContent: 'center', fontSize: '1.1rem', marginBottom: '1rem', textDecoration: 'none', backgroundColor: businessInfo?.brand_color || 'var(--primary)' }}
-              onClick={() => setTimeout(() => setStep(2), 2000)} // Mock shifting to final screen after clicking
-            >
-              Post Review on Google
-            </a>
-            
-            <button style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.85rem' }} onClick={() => setStep(2)}>
-              No thanks, I'm good.
+            <button className="btn-primary" style={{ padding: '1.25rem 2rem', width: '100%', display: 'flex', justifyContent: 'center', fontSize: '1.1rem', marginBottom: '1rem', backgroundColor: businessInfo?.brand_color || 'var(--primary)', border: 'none' }} onClick={() => setStep(2)}>
+              Close Window
             </button>
           </div>
         )}

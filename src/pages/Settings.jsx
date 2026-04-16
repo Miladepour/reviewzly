@@ -13,6 +13,7 @@ const Settings = () => {
 
   // Templates State
   const [reviewSms, setReviewSms] = useState('');
+  const [rewardSms, setRewardSms] = useState('Hi {{client_name}}! Thanks for the 5-stars. Here is our official Google link: {{google_link}}');
   const [birthdaySms, setBirthdaySms] = useState('');
 
   useEffect(() => {
@@ -24,7 +25,8 @@ const Settings = () => {
          setBusinessName(data.name || '');
          setGmbUrl(data.gmb_url || '');
          setRecoveryEmail(data.recovery_email || '');
-         setReviewSms(data.review_sms || '');
+         setReviewSms(data.review_sms || 'Hi {{client_name}}! Thanks for visiting {{business_name}}. Please leave us a review: {{review_link}}');
+         setRewardSms(data.reward_sms || 'Hi {{client_name}}! Thanks for the 5-stars. Here is our official Google link: {{google_link}}');
          setBirthdaySms(data.birthday_sms || '');
          setBrandColor(data.brand_color || '#00a84d');
        }
@@ -47,6 +49,7 @@ const Settings = () => {
          gmb_url: gmbUrl,
          recovery_email: recoveryEmail,
          review_sms: reviewSms,
+         reward_sms: rewardSms,
          birthday_sms: birthdaySms,
          brand_color: brandColor
       };
@@ -195,6 +198,7 @@ const Settings = () => {
                 <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{client_name}}`}</span>
                 <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{business_name}}`}</span>
                 <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{review_link}}`}</span>
+                <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{google_link}}`}</span>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -208,6 +212,19 @@ const Settings = () => {
                   required
                 />
                 <span className="text-label-sm" style={{ alignSelf: 'flex-end', opacity: 0.6 }}>{reviewSms.length} / 160 chars (1 SMS segment)</span>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-4">
+                <label className="text-label-sm" style={{ fontWeight: 700 }}>5-Star Reward Google Link Payload</label>
+                <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>The 2nd automated SMS that fires specifically when they tap '5-Star'. Must contain `{`{{google_link}}`}`.</p>
+                <textarea 
+                  rows="4"
+                  style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%', resize: 'vertical' }}
+                  value={rewardSms}
+                  onChange={(e) => setRewardSms(e.target.value)}
+                  required
+                />
+                <span className="text-label-sm" style={{ alignSelf: 'flex-end', opacity: 0.6 }}>{rewardSms.length} / 160 chars (1 SMS segment)</span>
               </div>
 
               <div className="flex flex-col gap-2 mt-4">
@@ -281,10 +298,10 @@ const Settings = () => {
                     <input 
                       type="text" 
                       readOnly
-                      value={`${window.location.origin}/r/reviewzly-pro`}
+                      value={`${window.location.origin}/r/Xp9vD2`}
                       style={{ padding: '1rem', borderRadius: '0.5rem', border: '1px solid var(--primary)', width: '100%', backgroundColor: 'var(--surface-container-lowest)', fontWeight: 600, color: 'var(--primary-dark)' }}
                     />
-                    <a href="/r/reviewzly-pro" target="_blank" className="btn-primary" style={{ padding: '1rem 1.5rem', textDecoration: 'none', flexShrink: 0 }}>
+                    <a href={`/r/Xp9vD2`} target="_blank" className="btn-primary" style={{ padding: '1rem 1.5rem', textDecoration: 'none', flexShrink: 0 }}>
                       Preview Live Flow
                     </a>
                  </div>

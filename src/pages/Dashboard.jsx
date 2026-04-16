@@ -116,7 +116,7 @@ const Dashboard = () => {
           let finalSms = bData.review_sms
               .replace(/{{business_name}}/g, bData.name || 'Our Business')
               .replace(/{{client_name}}/g, clientName || 'there')
-              .replace(/{{review_link}}/g, `${window.location.origin}/r/${bData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
+              .replace(/{{review_link}}/g, `${window.location.origin}/r/${clientData.short_code}`);
               
           try {
              const destPhone = clientPhone.replace(/[^0-9]/g, '');
