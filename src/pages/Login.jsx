@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -24,6 +25,16 @@ const Login = () => {
 
     try {
       if (isRegistering) {
+        // PRE-FLIGHT AUTHENTICATION GATE
+        const { data: isValid, error: rpcError } = await supabase.rpc('verify_invite_code', { submitted_code: inviteCode });
+        if (rpcError) {
+          console.error("RPC Error:", rpcError);
+          throw new Error("Unable to verify code with the server. Please try again.");
+        }
+        if (!isValid) {
+           throw new Error("Invalid or missing Invite Code. Access denied.");
+        }
+
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setSuccessMsg('Success! Check your email to verify your account.');
@@ -101,6 +112,20 @@ const Login = () => {
                 required
               />
             </div>
+
+            {isRegistering && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--on-surface)' }}>VIP Invite Code</label>
+                <input 
+                  type="text" 
+                  value={inviteCode}
+                  onChange={e => setInviteCode(e.target.value)}
+                  placeholder="Enter secret code" 
+                  style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', fontSize: '1rem', fontFamily: 'inherit' }}
+                  required={isRegistering}
+                />
+              </div>
+            )}
 
             {!isRegistering && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '-0.5rem' }}>
