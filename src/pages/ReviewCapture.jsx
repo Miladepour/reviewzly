@@ -36,19 +36,15 @@ const ReviewCapture = () => {
            }
         }
 
-        // Lookup the specific client tracking code natively
-        const { data, error } = await supabase
-          .from('clients')
-          .select('*, businesses(*)')
-          .eq('short_code', shortCode)
-          .single();
+        // Bypassing RLS Securely via Database RPC
+        const { data, error } = await supabase.rpc('get_public_tracking_link', { p_short_code: shortCode });
 
-        if (data && !error && data.businesses) {
-          setBusinessInfo(data.businesses);
-          setClientInfo(data);
+        if (data && !data.error) {
+          setBusinessInfo(data.business);
+          setClientInfo(data.client);
           // Pre-fill internal form for faster submission
-          setName(data.name || '');
-          setPhone(data.phone || '');
+          setName(data.client.name || '');
+          setPhone(data.client.phone || '');
         }
       } catch (err) {
         console.error("Failed to load tracking profile:", err);
