@@ -15,8 +15,8 @@ const Dashboard = () => {
   const [clients, setClients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Voodoo API State
-  const [voodooCredits, setVoodooCredits] = useState('Syncing...');
+  // SMS API State
+  const [smsBalance, setSmsBalance] = useState('Syncing...');
 
   const fetchDashboardData = async () => {
     try {
@@ -33,30 +33,13 @@ const Dashboard = () => {
         setClients(data);
       }
       
-      // Secondary Fetch: Ping Voodoo SMS server natively using configured HTTPS token
-      const { data: businessData } = await supabase.from('businesses').select('voodoo_api_key').eq('id', session.user.id).single();
+      // Secondary Fetch: Native Database Credits
+      const { data: businessData } = await supabase.from('businesses').select('sms_credits').eq('id', session.user.id).single();
       
-      if (businessData && businessData.voodoo_api_key) {
-          try {
-             // Dispatch directly to local Proxy Engine which safely hands it to external servers
-             const voodooRes = await fetch('/api/voodoo/credits', {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${businessData.voodoo_api_key}` }
-             });
-             const voodooJson = await voodooRes.json();
-             
-             // Voodoo uses "amount" instead of "credit" in their JSON response
-             if (voodooJson.amount !== undefined) {
-                 setVoodooCredits(voodooJson.amount);
-             } else {
-                 setVoodooCredits('Invalid Token');
-             }
-          } catch (apiErr) {
-             console.error("Voodoo API Fetch Blocked:", apiErr);
-             setVoodooCredits('CORS Blocked');
-          }
+      if (businessData) {
+          setSmsBalance(businessData.sms_credits || 0);
       } else {
-          setVoodooCredits('No Key Linked');
+          setSmsBalance('No Data');
       }
 
     } catch (e) {
@@ -95,9 +78,9 @@ const Dashboard = () => {
       // === NEW: Automated SMS Dispatch ===
       const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
       
-      let dispatchLogText = 'Client added without SMS (No template or keys configured).';
+      let dispatchLogText = 'Client added without SMS (No template).';
       
-      if (bData && bData.voodoo_api_key && bData.review_sms) {
+      if (bData && bData.review_sms) {
           // Parse dynamic template variables
           let finalSms = bData.review_sms
               .replace(/{{business_name}}/g, bData.name || 'Our Business')
@@ -106,27 +89,29 @@ const Dashboard = () => {
               
           try {
              const destPhone = clientPhone.replace(/[^0-9]/g, '');
-             const vRes = await fetch('/api/voodoo/sendsms', {
+             const vRes = await fetch('/api/send_sms', {
                 method: 'POST',
                 headers: { 
-                    'Authorization': `Bearer ${bData.voodoo_api_key}`,
+                    'Authorization': `Bearer ${session.access_token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    to: destPhone,
-                    from: bData.voodoo_sender_id || 'Reviewzly',
-                    msg: finalSms
+                    dest: destPhone,
+                    msg: finalSms,
+                    clientName: clientName
                 })
              });
              
              if (vRes.ok) {
                  dispatchLogText = `[AUTO-DISPATCH SUCCESS] ` + finalSms;
+             } else if (vRes.status === 402) {
+                 dispatchLogText = `[AUTO-DISPATCH BLOCKED] Insufficient SMS Credits.`;
              } else {
                  dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
-                 console.warn("Voodoo API failed to deliver the automated payload.");
+                 console.warn("API failed to deliver the automated payload.");
              }
           } catch(err) {
-             console.error("Voodoo Dispatch Error:", err);
+             console.error("Dispatch Error:", err);
              dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
           }
       }
@@ -215,12 +200,12 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div style={{ padding: '2rem', backgroundColor: '#fffcf9' }}>
-            <p className="val-sub" style={{ color: '#7a3a00' }}>Voodoo SMS Credits</p>
+          <div style={{ padding: '2rem', backgroundColor: '#e8f5e9' }}>
+            <p className="val-sub" style={{ color: '#2e7d32' }}>Platform SMS Balance</p>
             <div className="flex justify-between items-center mt-2 flex-wrap gap-2">
-              <h2 className="text-display-xl" style={{ fontSize: '2.5rem', color: '#7a3a00' }}>{voodooCredits}</h2>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#ffdcc8', color: '#7a3a00', padding: '0.25rem 0.6rem', borderRadius: '0.5rem' }}>
-                 {voodooCredits === 'Syncing...' || voodooCredits === 'No Key Linked' ? 'Pending' : 'Live API'}
+              <h2 className="text-display-xl" style={{ fontSize: '2.5rem', color: '#1b5e20' }}>{smsBalance}</h2>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#c8e6c9', color: '#1b5e20', padding: '0.25rem 0.6rem', borderRadius: '0.5rem' }}>
+                 {smsBalance === 'Syncing...' ? 'Pending' : 'Live System'}
               </span>
             </div>
           </div>

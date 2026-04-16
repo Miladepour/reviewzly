@@ -103,37 +103,29 @@ const Inbox = () => {
     const { data: { session } } = await supabase.auth.getSession();
     const bid = session.user.id;
     
-    // FETCH LIVE KEY CONFIG FOR SENDING
-    const { data: businessData } = await supabase.from('businesses').select('voodoo_api_key, voodoo_sender_id').eq('id', bid).single();
-    
-    if (businessData && businessData.voodoo_api_key) {
-        try {
-            const destPhone = activeConvo.phone.replace(/[^0-9]/g, '');
-            const voodooRes = await fetch('/api/voodoo/sendsms', {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${businessData.voodoo_api_key}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    to: destPhone,
-                    from: businessData.voodoo_sender_id || 'Reviewzly',
-                    msg: textToSend
-                })
-            });
-            
-            if (!voodooRes.ok) {
-                console.error("Voodoo API failed to send SMS.");
-                showChatToast("Failed to send message via Voodoo API. Please verify your token and format.");
-                return;
-            }
-        } catch (err) {
-            console.error(err);
-            showChatToast("Error connecting to dispatch server via CORS Proxy.");
+    try {
+        const destPhone = activeConvo.phone.replace(/[^0-9]/g, '');
+        const voodooRes = await fetch('/api/send_sms', {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                dest: destPhone,
+                msg: textToSend,
+                clientName: activeConvo.clientName
+            })
+        });
+        
+        if (!voodooRes.ok) {
+            if (voodooRes.status === 402) showChatToast("Network Error: Insufficient SMS Credits to broadcast messages.");
+            else showChatToast("Failed to send message via Cloudflare Edge API.");
             return;
         }
-    } else {
-        showChatToast("Integrations Error: You must link a Voodoo API key in Platform Settings to broadcast messages.");
+    } catch (err) {
+        console.error(err);
+        showChatToast("Error connecting to secure dispatch edge server.");
         return;
     }
     
@@ -162,35 +154,28 @@ const Inbox = () => {
     const { data: { session } } = await supabase.auth.getSession();
     const bid = session.user.id;
 
-    // FETCH LIVE KEY CONFIG FOR INITIAL DISPATCH
-    const { data: businessData } = await supabase.from('businesses').select('voodoo_api_key, voodoo_sender_id').eq('id', bid).single();
-    
-    if (!businessData || !businessData.voodoo_api_key) {
-       showChatToast("Integrations Error: You must link a Voodoo API key in Platform Settings to broadcast messages.");
-       return;
-    }
-
     try {
         const destPhone = newChatPhone.replace(/[^0-9]/g, '');
-        const voodooRes = await fetch('/api/voodoo/sendsms', {
+        const voodooRes = await fetch('/api/send_sms', {
             method: 'POST',
             headers: { 
-                'Authorization': `Bearer ${businessData.voodoo_api_key}`,
+                'Authorization': `Bearer ${session.access_token}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                to: destPhone,
-                from: businessData.voodoo_sender_id || 'Reviewzly',
-                msg: newChatMessage
+                dest: destPhone,
+                msg: newChatMessage,
+                clientName: newChatName
             })
         });
         
         if (!voodooRes.ok) {
-            showChatToast("Failed to send message via Voodoo API. Ensure you are using proper country codes.");
+            if (voodooRes.status === 402) showChatToast("Network Error: Insufficient SMS Credits to broadcast messages.");
+            else showChatToast("Failed to send message via Cloudflare Edge API.");
             return;
         }
     } catch (err) {
-        showChatToast("Error connecting to Voodoo dispatch server over CORS.");
+        showChatToast("Error connecting to secure dispatch edge server.");
         return;
     }
 
