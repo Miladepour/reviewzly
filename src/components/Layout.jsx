@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 const Layout = () => {
   const navigate = useNavigate();
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   // Auto-healing logic: Auto-register business record if it's missing (for users who created an account prior to SQL execution)
   useEffect(() => {
@@ -25,15 +26,33 @@ const Layout = () => {
         if (error && error.code === 'PGRST116') {
           // 'PGRST116' is the exact Postgres error code meaning "no rows returned". 
           // This means they have an Auth token, but no business row! We must heal it.
-          console.log("Healing missing Business Profile...");
+          console.log("Healing missing Business Profile from Auth Metadata...");
+          const meta = session.user.user_metadata || {};
+          const bizName = meta.business_name || session.user.email.split('@')[0] + "'s Agency";
+          const bizCountry = meta.business_country || 'UK';
+
           const { error: insertError } = await supabase
             .from('businesses')
-            .insert([{ id: userId, name: session.user.email.split('@')[0] + "'s Agency" }]);
+            .insert([{ 
+               id: userId, 
+               name: bizName,
+               business_country: bizCountry,
+               business_phone: meta.phone || null
+            }]);
             
           if (insertError) {
             console.error("Failed to heal business profile:", insertError.message);
           }
         }
+        
+        // Super Admin Access Check
+        const { data: adminData } = await supabase
+          .from('super_admins')
+          .select('user_id')
+          .eq('user_id', userId)
+          .single();
+        if (adminData) setIsSuperAdmin(true);
+        
       } catch (err) {
         console.error("Critical error mapping session to business profile", err);
       } finally {
@@ -92,9 +111,9 @@ const Layout = () => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             Reviews Analytics
           </NavLink>
-          <NavLink to="/dashboard/integrations" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-            Integrations
+          <NavLink to="/dashboard/sms" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            SMS Hub
           </NavLink>
           <NavLink to="/dashboard/settings" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -113,6 +132,13 @@ const Layout = () => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
             Help Center
           </NavLink>
+
+          {isSuperAdmin && (
+            <NavLink to="/dashboard/admin" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} style={{ color: 'var(--primary)', fontWeight: 700 }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              Super Admin Panel
+            </NavLink>
+          )}
           
           {/* FUNCTIONAL LOGOUT BUTTON */}
           <a href="#" onClick={handleLogout} className="nav-link" style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>

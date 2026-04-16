@@ -102,7 +102,7 @@ const Clients = () => {
           const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
           let dispatchLogText = 'Client added without SMS (No template).';
 
-          if (bData && bData.voodoo_api_key && bData.review_sms) {
+          if (bData && bData.review_sms) {
               let finalSms = bData.review_sms
                   .replace(/{{business_name}}/g, bData.name || 'Our Business')
                   .replace(/{{client_name}}/g, addName || 'there')
@@ -110,13 +110,19 @@ const Clients = () => {
 
               try {
                   const destPhone = addPhone.replace(/[^0-9]/g, '');
-                  const vRes = await fetch('/api/voodoo/sendsms', {
+                  const vRes = await fetch('/api/send_sms', {
                       method: 'POST',
-                      headers: { 'Authorization': `Bearer ${bData.voodoo_api_key}`, 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ to: destPhone, from: bData.voodoo_sender_id || 'Reviewzly', msg: finalSms })
+                      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ dest: destPhone, msg: finalSms, clientName: addName })
                   });
-                  if (vRes.ok) dispatchLogText = `[AUTO-DISPATCH SUCCESS] ` + finalSms;
-                  else dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
+                  if (vRes.ok) {
+                      dispatchLogText = `[AUTO-DISPATCH SUCCESS] ` + finalSms;
+                  } else if (vRes.status === 402) {
+                      dispatchLogText = `[AUTO-DISPATCH BLOCKED] Insufficient SMS Credits.`;
+                      displayNotice("Insufficient SMS Credits.", true);
+                  } else {
+                      dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
+                  }
               } catch(err) {
                   dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
               }
@@ -180,7 +186,7 @@ const Clients = () => {
                 // Fire Automated SMS Template if exists
                 let dispatchLogText = 'Added via CSV without SMS (No template).';
                 
-                if (bData && bData.voodoo_api_key && bData.review_sms) {
+                if (bData && bData.review_sms) {
                     let finalSms = bData.review_sms
                         .replace(/{{business_name}}/g, bData.name || 'Our Business')
                         .replace(/{{client_name}}/g, cName || 'there')
@@ -188,21 +194,23 @@ const Clients = () => {
                     
                     try {
                        const destPhone = cPhone.replace(/[^0-9]/g, '');
-                       const vRes = await fetch('/api/voodoo/sendsms', {
+                       const vRes = await fetch('/api/send_sms', {
                           method: 'POST',
                           headers: { 
-                              'Authorization': `Bearer ${bData.voodoo_api_key}`,
+                              'Authorization': `Bearer ${session.access_token}`,
                               'Content-Type': 'application/json'
                           },
                           body: JSON.stringify({
-                              to: destPhone,
-                              from: bData.voodoo_sender_id || 'Reviewzly',
-                              msg: finalSms
+                              dest: destPhone,
+                              msg: finalSms,
+                              clientName: cName
                           })
                        });
                        
                        if (vRes.ok) {
                            dispatchLogText = `[AUTO-DISPATCH SUCCESS] ` + finalSms;
+                       } else if (vRes.status === 402) {
+                           dispatchLogText = `[AUTO-DISPATCH BLOCKED] Insufficient SMS Credits.`;
                        } else {
                            dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
                        }

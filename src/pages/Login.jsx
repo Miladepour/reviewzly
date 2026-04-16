@@ -6,6 +6,10 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [country, setCountry] = useState('UK');
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -25,7 +29,17 @@ const Login = () => {
 
     try {
       if (isRegistering) {
-        // PRE-FLIGHT AUTHENTICATION GATE
+        // VERIFICATION LAYER 1: Anti-Farming Database Scan
+        const { data: phoneExists, error: phoneErr } = await supabase.rpc('check_phone_exists', { submitted_phone: contactPhone });
+        if (phoneErr) {
+          console.error("RPC Phone Check Error:", phoneErr);
+          throw new Error("Unable to connect securely to the verification matrix.");
+        }
+        if (phoneExists) {
+            throw new Error("This mobile number is already linked to an active agency. Limit is strictly 1 account per user.");
+        }
+
+        // VERIFICATION LAYER 2: Admin Gateway Code
         const { data: isValid, error: rpcError } = await supabase.rpc('verify_invite_code', { submitted_code: inviteCode });
         if (rpcError) {
           console.error("RPC Error:", rpcError);
@@ -35,7 +49,18 @@ const Login = () => {
            throw new Error("Invalid or missing Invite Code. Access denied.");
         }
 
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ 
+          email, 
+          password,
+          options: {
+            data: {
+              business_name: businessName,
+              business_country: country,
+              full_name: contactName,
+              phone: contactPhone
+            }
+          }
+        });
         if (error) throw error;
         setSuccessMsg('Success! Check your email to verify your account.');
       } else {
@@ -114,16 +139,30 @@ const Login = () => {
             </div>
 
             {isRegistering && (
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--on-surface)' }}>VIP Invite Code</label>
-                <input 
-                  type="text" 
-                  value={inviteCode}
-                  onChange={e => setInviteCode(e.target.value)}
-                  placeholder="Enter secret code" 
-                  style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', fontSize: '1rem', fontFamily: 'inherit' }}
-                  required={isRegistering}
-                />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--on-surface)' }}>Business Info</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <input type="text" placeholder="Business Name" value={businessName} onChange={e => setBusinessName(e.target.value)} style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }} required={isRegistering} />
+                    <select value={country} onChange={e => setCountry(e.target.value)} style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', backgroundColor: '#fff', appearance: 'auto' }} required={isRegistering}>
+                      <option value="UK">United Kingdom (UK)</option>
+                      <option value="Canada">Canada</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--on-surface)' }}>Contact Person</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <input type="text" placeholder="Full Name" value={contactName} onChange={e => setContactName(e.target.value)} style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }} required={isRegistering} />
+                    <input type="tel" placeholder="Mobile Number" value={contactPhone} onChange={e => setContactPhone(e.target.value)} style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }} required={isRegistering} />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--on-surface)' }}>VIP Invite Code</label>
+                  <input type="text" value={inviteCode} onChange={e => setInviteCode(e.target.value)} placeholder="Enter secret code" style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none' }} required={isRegistering} />
+                </div>
               </div>
             )}
 

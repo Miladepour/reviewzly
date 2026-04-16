@@ -50,12 +50,15 @@ const Settings = () => {
          brand_color: brandColor
       }).eq('id', session.user.id);
       
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') throw new Error("This Sender ID is already taken. Please choose another.");
+        throw error;
+      }
       
       setSaveMessage('Platform settings saved securely to Database.');
     } catch (err) {
       console.error(err);
-      setSaveMessage('Error saving configurations. Ensure SQL columns are added!');
+      setSaveMessage(err.message || 'Error saving configurations.');
     } finally {
       setIsSaving(false);
       setTimeout(() => setSaveMessage(''), 4000);

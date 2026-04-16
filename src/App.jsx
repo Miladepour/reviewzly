@@ -6,12 +6,13 @@ import Campaigns from './pages/Campaigns';
 import Inbox from './pages/Inbox';
 import Clients from './pages/Clients';
 import Reviews from './pages/Reviews';
-import Integrations from './pages/Integrations';
+import SmsHub from './pages/SmsHub';
 import Settings from './pages/Settings';
 import HelpCenter from './pages/HelpCenter';
 import Login from './pages/Login';
 import Landing from './pages/Landing';
 import Profile from './pages/Profile';
+import SuperAdmin from './pages/SuperAdmin';
 import { supabase } from './supabaseClient';
 
 // INTERCEPTOR: Walls off all /dashboard routes if no active Supabase Auth token is present
@@ -74,10 +75,11 @@ const App = () => {
           <Route path="campaigns" element={<Campaigns />} />
           <Route path="clients" element={<Clients />} />
           <Route path="reviews" element={<Reviews />} />
-          <Route path="integrations" element={<Integrations />} />
+          <Route path="sms" element={<SmsHub />} />
           <Route path="settings" element={<Settings />} />
           <Route path="profile" element={<Profile />} />
           <Route path="help" element={<HelpCenter />} />
+          <Route path="admin" element={<SuperAdmin />} />
         </Route>
 
         {/* Fallback Error Route */}
