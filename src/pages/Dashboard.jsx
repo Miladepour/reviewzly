@@ -381,7 +381,9 @@ const Dashboard = () => {
                         <p className="text-label-sm mt-1">{new Date(client.created_at).toLocaleDateString()}</p>
                       </div>
                       <div className="flex flex-col items-end">
-                        <span className="text-title-md" style={{ color: isGoogle ? 'var(--primary)' : '#ff8c42' }}>{isGoogle ? '★★★★★' : '★★★☆☆'}</span>
+                        <span className="text-title-md" style={{ color: isGoogle ? 'var(--primary)' : '#ff8c42' }}>
+                          {'★'.repeat(parseInt(client.rating_status?.split('-')[0]) || 3)}{'☆'.repeat(5 - (parseInt(client.rating_status?.split('-')[0]) || 3))}
+                        </span>
                         <span style={{ 
                           fontSize: '0.6rem', fontWeight: 700, 
                           backgroundColor: isGoogle ? '#E8F5E9' : '#ffdcc8', 
