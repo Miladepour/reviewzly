@@ -272,7 +272,7 @@ const Settings = () => {
                     <input 
                       type="text" 
                       readOnly
-                      value="http://localhost:5173/r/reviewzly-pro"
+                      value={`${window.location.origin}/r/reviewzly-pro`}
                       style={{ padding: '1rem', borderRadius: '0.5rem', border: '1px solid var(--primary)', width: '100%', backgroundColor: 'var(--surface-container-lowest)', fontWeight: 600, color: 'var(--primary-dark)' }}
                     />
                     <a href="/r/reviewzly-pro" target="_blank" className="btn-primary" style={{ padding: '1rem 1.5rem', textDecoration: 'none', flexShrink: 0 }}>

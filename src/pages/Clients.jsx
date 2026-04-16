@@ -106,7 +106,7 @@ const Clients = () => {
               let finalSms = bData.review_sms
                   .replace(/{{business_name}}/g, bData.name || 'Our Business')
                   .replace(/{{client_name}}/g, addName || 'there')
-                  .replace(/{{review_link}}/g, `http://localhost:5173/r/${bData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
+                  .replace(/{{review_link}}/g, `${window.location.origin}/r/${bData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
 
               try {
                   const destPhone = addPhone.replace(/[^0-9]/g, '');
@@ -184,7 +184,7 @@ const Clients = () => {
                     let finalSms = bData.review_sms
                         .replace(/{{business_name}}/g, bData.name || 'Our Business')
                         .replace(/{{client_name}}/g, cName || 'there')
-                        .replace(/{{review_link}}/g, `http://localhost:5173/r/${bData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
+                        .replace(/{{review_link}}/g, `${window.location.origin}/r/${bData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
                     
                     try {
                        const destPhone = cPhone.replace(/[^0-9]/g, '');
