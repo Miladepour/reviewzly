@@ -41,14 +41,20 @@ const Settings = () => {
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const { error } = await supabase.from('businesses').update({
+      
+      const payload = {
          name: businessName,
          gmb_url: gmbUrl,
          recovery_email: recoveryEmail,
          review_sms: reviewSms,
          birthday_sms: birthdaySms,
          brand_color: brandColor
-      }).eq('id', session.user.id);
+      };
+      
+      // CACHE INVALIDATION: If they change their agency name, wipe the Google Lock so it fetches instantly
+      payload.google_last_synced_at = null;
+
+      const { error } = await supabase.from('businesses').update(payload).eq('id', session.user.id);
       
       if (error) {
         if (error.code === '23505') throw new Error("This Sender ID is already taken. Please choose another.");

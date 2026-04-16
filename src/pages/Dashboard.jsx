@@ -20,6 +20,7 @@ const Dashboard = () => {
 
   // Google Cache State
   const [googleStats, setGoogleStats] = useState({ rating: 0.0, total_reviews: 0 });
+  const [googleReviews, setGoogleReviews] = useState([]);
 
   const fetchDashboardData = async () => {
     try {
@@ -44,6 +45,7 @@ const Dashboard = () => {
 
           // Stale-While-Revalidate Google Caching Algorithm
           setGoogleStats({ rating: businessData.google_rating || 0.0, total_reviews: businessData.google_reviews_count || 0 });
+          setGoogleReviews(businessData.google_reviews || []);
 
           const diff = Date.now() - new Date(businessData.google_last_synced_at || 0).getTime();
           const hoursPassed = diff / (1000 * 60 * 60);
@@ -58,9 +60,11 @@ const Dashboard = () => {
                       supabase.from('businesses').update({
                           google_rating: gData.rating,
                           google_reviews_count: gData.total_reviews,
+                          google_reviews: gData.reviews || [],
                           google_last_synced_at: new Date().toISOString()
                       }).eq('id', session.user.id).then(()=>{});
                       setGoogleStats({ rating: gData.rating, total_reviews: gData.total_reviews });
+                      if (gData.reviews) setGoogleReviews(gData.reviews);
                   }
               }).catch(e => console.error("Background Cache Update Failed:", e));
           }
@@ -398,6 +402,32 @@ const Dashboard = () => {
             <button className="btn-primary" style={{ width: '100%', marginTop: '1.5rem', backgroundColor: 'transparent', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)' }}>
               Refresh History
             </button>
+          </div>
+
+          {/* GOOGLE REVIEWS INJECTION */}
+          <div className="card">
+            <h3 className="text-title-md mb-6">Recent Public Reviews</h3>
+            <div className="flex flex-col gap-4">
+              {googleReviews.map((r, i) => (
+                <div key={i} style={{ padding: '1.25rem', backgroundColor: 'var(--surface-container-low)', borderRadius: '1rem' }}>
+                  <div className="flex justify-between items-start mb-2">
+                     <div>
+                        <h4 className="text-title-sm" style={{ fontWeight: 700 }}>{r.author_name}</h4>
+                        <p className="text-label-sm mt-1">{r.relative_time_description}</p>
+                     </div>
+                     <span className="text-title-md" style={{ color: 'var(--primary)' }}>
+                        {Array.from({ length: Math.round(r.rating || 5) }).map((_, i) => '★').join('')}
+                     </span>
+                  </div>
+                  {r.text && <p className="text-body mt-2" style={{ fontSize: '0.85rem', opacity: 0.9 }}>"{r.text}"</p>}
+                </div>
+              ))}
+              {googleReviews.length === 0 && (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
+                    Awaiting public review fetch payload...
+                  </div>
+              )}
+            </div>
           </div>
 
         </div>
