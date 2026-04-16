@@ -111,10 +111,12 @@ const Dashboard = () => {
       
       let dispatchLogText = 'Client added without SMS (No template).';
       
-      if (bData && bData.review_sms) {
+      const template = bData?.review_sms || 'Hi {{client_name}}! Thanks for visiting {{business_name}}. Please leave us a review: {{review_link}}';
+      
+      if (template) {
           // Parse dynamic template variables
-          let finalSms = bData.review_sms
-              .replace(/{{business_name}}/g, bData.name || 'Our Business')
+          let finalSms = template
+              .replace(/{{business_name}}/g, bData?.name || 'Our Business')
               .replace(/{{client_name}}/g, clientName || 'there')
               .replace(/{{review_link}}/g, `${window.location.origin}/r/${clientData.short_code}`);
               
