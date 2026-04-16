@@ -62,10 +62,9 @@ export async function onRequestPost({ request, env }) {
     }
 
     const voodooPayload = {
-      orig: senderId,
-      dest: dest,
-      msg: msg,
-      validity: "72" // TTL for trying to deliver
+      from: senderId,
+      to: dest,
+      msg: msg
     };
 
     const voodooResponse = await fetch("https://api.voodoosms.com/sendsms", {
@@ -77,11 +76,11 @@ export async function onRequestPost({ request, env }) {
       body: JSON.stringify(voodooPayload)
     });
 
-    const voodooResult = await voodooResponse.json();
-
-    if (!voodooResponse.ok || voodooResult.result !== 200) {
-       console.error("Voodoo API Frame Error:", voodooResult);
-       return new Response(JSON.stringify({ error: "Telecom network rejection.", details: voodooResult }), { status: 502, headers: { 'Content-Type': 'application/json' }});
+    if (!voodooResponse.ok) {
+       let errorDetails = "Unknown Network Error";
+       try { errorDetails = await voodooResponse.text(); } catch(e) {}
+       console.error("Voodoo API Frame Error:", errorDetails);
+       return new Response(JSON.stringify({ error: "Telecom network rejection.", details: errorDetails }), { status: 502, headers: { 'Content-Type': 'application/json' }});
     }
 
     // Mission Accomplished
