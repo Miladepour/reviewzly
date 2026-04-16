@@ -24,7 +24,19 @@ const ReviewCapture = () => {
       try {
         if (!shortCode) return;
         
-        // Lookup the specific client tracking code
+        // MOCK UI INTERCEPT: If testing via "Preview Live Flow"
+        if (shortCode === 'Xp9vD2') {
+           const { data: { session } } = await supabase.auth.getSession();
+           if (session) {
+               const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
+               setBusinessInfo(bData);
+               setClientInfo({ id: 'dummy-demo', name: 'Valued Client' });
+               setIsLoading(false);
+               return;
+           }
+        }
+
+        // Lookup the specific client tracking code natively
         const { data, error } = await supabase
           .from('clients')
           .select('*, businesses(*)')
