@@ -12,6 +12,7 @@ import HelpCenter from './pages/HelpCenter';
 import Login from './pages/Login';
 import Landing from './pages/Landing';
 import Terms from './pages/Terms';
+import ReviewCapture from './pages/ReviewCapture';
 import Profile from './pages/Profile';
 import SuperAdmin from './pages/SuperAdmin';
 import { supabase } from './supabaseClient';
@@ -63,6 +64,7 @@ const App = () => {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/r/:businessName" element={<ReviewCapture />} />
 
         {/* SECURE ROUTES: Wrapped in ProtectedRoute Interceptor */}
         <Route path="/dashboard" element={

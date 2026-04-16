@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
 const ReviewCapture = () => {
-  const { businessId } = useParams();
+  const { businessName } = useParams();
   
-  // Clean mock presentation for the business name based on the slug.
-  const businessName = businessId ? businessId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Our Business';
+  const [businessInfo, setBusinessInfo] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -17,26 +18,99 @@ const ReviewCapture = () => {
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleRatingClick = (selectedRating) => {
+  useEffect(() => {
+    const fetchBusiness = async () => {
+      try {
+        if (!businessName) return;
+        // Reconstruct the name from the slug (e.g. "say-click-limited" -> "say click limited")
+        const searchTerm = businessName.replace(/-/g, ' ');
+        
+        // Attempt case-insensitive match against the businesses table
+        const { data, error } = await supabase
+          .from('businesses')
+          .select('*')
+          .ilike('name', searchTerm)
+          .single();
+
+        if (data && !error) {
+          setBusinessInfo(data);
+        }
+      } catch (err) {
+        console.error("Failed to load business profile:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchBusiness();
+  }, [businessName]);
+
+  const handleRatingClick = async (selectedRating) => {
     setRating(selectedRating);
-    // Add a slight delay for satisfying UX before shifting pages
-    setTimeout(() => {
+    setTimeout(async () => {
       if (selectedRating === 5) {
         setStep('1A'); // Google Flow
+        // Because they clicked 5-Star, we'll optimistically record an Anonymous 5-Star Intent in their clients database to power Dashboard analytics!
+        if (businessInfo) {
+           supabase.from('clients').insert([{
+              business_id: businessInfo.id,
+              name: 'Anonymous 5-Star Intent',
+              phone: 'Unknown',
+              tags: ['Public Review Link'],
+              rating_status: '5-Star Redirect'
+           }]).then(()=>{});
+        }
       } else {
         setStep('1B'); // Internal Flow
       }
     }, 400); 
   };
 
-  const handleInternalSubmit = (e) => {
+  const handleInternalSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
+    try {
+        if (businessInfo) {
+            // Save the captured lead directly into their CRM with the "Captured" flag
+            await supabase.from('clients').insert([{
+                business_id: businessInfo.id,
+                name: name,
+                phone: phone,
+                tags: ['Internal Recovery'],
+                rating_status: `${rating}-Star Captured`
+            }]);
+            
+            // Log interaction timeline
+            await supabase.from('communications').insert([{
+                client_id: null, // Global notification
+                business_id: businessInfo.id,
+                type: 'INBOUND_SMS',
+                text: `[RESTRICTED REVIEW CAUGHT] ${name} (${phone}) attempted to leave a ${rating}-Star review. Problem: "${feedback}"`,
+                is_outbound: false
+            }]);
+        }
+    } catch(err) {
+        console.error("Save Error:", err);
+    }
+    
     setTimeout(() => {
       setIsSubmitting(false);
       setStep(2); // Final Thank You
-    }, 1500);
+    }, 1000);
   };
+
+  if (isLoading) {
+      return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading Review Portal...</div>;
+  }
+
+  if (!isLoading && !businessInfo) {
+      return (
+          <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+             <h2>Business Not Found</h2>
+             <p style={{ opacity: 0.6 }}>The requested review link is inactive or invalid.</p>
+          </div>
+      )
+  }
 
   return (
     <div style={{ backgroundColor: 'var(--surface-container-lowest)', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
@@ -44,15 +118,17 @@ const ReviewCapture = () => {
       {/* Maximum width constraint to ensure it looks like a mobile app even on desktop */}
       <div className="card" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem 2rem', textAlign: 'center', boxShadow: 'var(--shadow-md)', borderRadius: '1.5rem', backgroundColor: 'white' }}>
         
-        <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--surface-container-low)', margin: '0 auto 2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <img src="/logo.png" alt="Business Logo" style={{ width: '100%', height: 'auto' }} />
+        <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: businessInfo?.brand_color || 'var(--surface-container-low)', margin: '0 auto 2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <span style={{ fontSize: '2rem', color: 'white', fontWeight: 700 }}>
+             {businessInfo?.name ? businessInfo.name.charAt(0).toUpperCase() : '★'}
+          </span>
         </div>
 
         {/* STEP 0: INITIAL RATING PAGE */}
         {step === 0 && (
           <div className="fade-in">
             <h1 className="text-display-xl mb-2" style={{ fontSize: '1.75rem', color: '#102A14' }}>How was your visit?</h1>
-            <p className="text-body mb-8" style={{ fontSize: '1rem' }}>Please rate your recent experience at <strong>{businessName}</strong>.</p>
+            <p className="text-body mb-8" style={{ fontSize: '1rem' }}>Please rate your recent experience at <strong>{businessInfo?.name || "our business"}</strong>.</p>
             
             <div className="flex justify-center gap-2 mb-4" onMouseLeave={() => setHoverRating(0)}>
               {[1, 2, 3, 4, 5].map((star) => (
@@ -64,8 +140,8 @@ const ReviewCapture = () => {
                     height: '56px', 
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    fill: (hoverRating || rating) >= star ? 'var(--primary)' : 'transparent',
-                    stroke: (hoverRating || rating) >= star ? 'var(--primary)' : 'var(--outline-variant)',
+                    fill: (hoverRating || rating) >= star ? (businessInfo?.brand_color || 'var(--primary)') : 'transparent',
+                    stroke: (hoverRating || rating) >= star ? (businessInfo?.brand_color || 'var(--primary)') : 'var(--outline-variant)',
                     strokeWidth: 1.5,
                     transform: (hoverRating) === star ? 'scale(1.15)' : 'scale(1)'
                   }}
@@ -78,7 +154,7 @@ const ReviewCapture = () => {
             </div>
             
             {/* Dynamic text based on hover */}
-            <p className="mt-6 text-label-sm" style={{ height: '20px', color: hoverRating === 5 ? 'var(--primary)' : 'var(--on-surface-variant)', fontWeight: hoverRating === 5 ? 700 : 500 }}>
+            <p className="mt-6 text-label-sm" style={{ height: '20px', color: hoverRating === 5 ? (businessInfo?.brand_color || 'var(--primary)') : 'var(--on-surface-variant)', fontWeight: hoverRating === 5 ? 700 : 500 }}>
                {hoverRating === 5 && "Incredible! I'd recommend it."}
                {hoverRating === 4 && "Great, but room for improvement."}
                {hoverRating === 3 && "It was okay."}
@@ -92,22 +168,22 @@ const ReviewCapture = () => {
         {/* STEP 1A: 5-STAR GOOGLE ROUTE */}
         {step === '1A' && (
           <div className="fade-in">
-            <div style={{ display: 'inline-flex', marginBottom: '1rem', color: 'var(--primary)' }}>
+            <div style={{ display: 'inline-flex', marginBottom: '1rem', color: businessInfo?.brand_color || 'var(--primary)' }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             </div>
             <h1 className="text-display-xl mb-3" style={{ fontSize: '1.75rem', color: '#102A14' }}>Amazing!</h1>
             <p className="text-body mb-8" style={{ fontSize: '1.05rem', lineHeight: 1.5, textAlign: 'left', padding: '0 0.5rem' }}>
               We are so thrilled you had a 5-star experience! We rely heavily on <strong>Google Reviews</strong> to grow our local business.
               <br/><br/>
-              It would mean the absolute world to us if you could paste that rating on our public page!
+              It would mean the absolute world to us if you could paste your rating on our public page!
             </p>
             
             <a 
-              href="https://google.com" 
+              href={businessInfo?.gmb_url || "https://google.com"} 
               target="_blank" 
               rel="noopener noreferrer" 
               className="btn-primary" 
-              style={{ padding: '1.25rem 2rem', width: '100%', display: 'flex', justifyContent: 'center', fontSize: '1.1rem', marginBottom: '1rem', textDecoration: 'none' }}
+              style={{ padding: '1.25rem 2rem', width: '100%', display: 'flex', justifyContent: 'center', fontSize: '1.1rem', marginBottom: '1rem', textDecoration: 'none', backgroundColor: businessInfo?.brand_color || 'var(--primary)' }}
               onClick={() => setTimeout(() => setStep(2), 2000)} // Mock shifting to final screen after clicking
             >
               Post Review on Google
@@ -151,7 +227,7 @@ const ReviewCapture = () => {
         {/* STEP 2: COMPLETION */}
         {step === 2 && (
           <div className="fade-in">
-             <div style={{ display: 'inline-flex', marginBottom: '1rem', color: 'var(--primary)' }}>
+             <div style={{ display: 'inline-flex', marginBottom: '1rem', color: businessInfo?.brand_color || 'var(--primary)' }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             </div>
             <h1 className="text-display-xl mb-2" style={{ fontSize: '1.75rem', color: '#102A14' }}>Thank You!</h1>
