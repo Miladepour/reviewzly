@@ -493,3 +493,51 @@ img { max-width: 100%; height: auto; }
   background: #aab4aa; 
 }
 
+/* Auth Screen Responsiveness */
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--surface-container-low);
+}
+@media (min-width: 900px) {
+  .auth-container {
+    flex-direction: row;
+  }
+}
+
+.auth-left {
+  flex: 1;
+  background-color: var(--primary-container);
+  display: flex;
+  flex-direction: column;
+  padding: 3rem 1.5rem;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+@media (min-width: 900px) {
+  .auth-left {
+    padding: 4rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    text-align: left;
+  }
+}
+
+.auth-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  background-color: white;
+}
+@media (min-width: 900px) {
+  .auth-right {
+    padding: 2rem;
+  }
+}
+

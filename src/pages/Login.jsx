@@ -77,9 +77,9 @@ const Login = () => {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--surface-container-low)' }}>
+    <div className="auth-container">
       {/* Left Branding Pane */}
-      <div style={{ flex: 1, backgroundColor: 'var(--primary-container)', display: 'flex', flexDirection: 'column', padding: '4rem', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
+      <div className="auth-left">
         <div style={{ zIndex: 10 }}>
            <h1 className="text-display-xl" style={{ color: 'var(--on-primary-container)', fontSize: '2.5rem', marginBottom: '1rem' }}>reviewzly.</h1>
            <p className="text-title-md" style={{ color: 'var(--on-primary-container)', opacity: 0.8, maxWidth: '400px' }}>
@@ -93,7 +93,7 @@ const Login = () => {
       </div>
 
       {/* Right Login Pane */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', backgroundColor: 'white' }}>
+      <div className="auth-right">
         <div style={{ width: '100%', maxWidth: '420px' }}>
           
           <h2 className="text-display-xl" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{isRegistering ? 'Create your account' : 'Welcome back'}</h2>
