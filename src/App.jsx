@@ -10,7 +10,8 @@ import Integrations from './pages/Integrations';
 import Settings from './pages/Settings';
 import HelpCenter from './pages/HelpCenter';
 import Login from './pages/Login';
-import Landing from './pages/Landing'; // Imported Landing Page
+import Landing from './pages/Landing';
+import Profile from './pages/Profile';
 import { supabase } from './supabaseClient';
 
 // INTERCEPTOR: Walls off all /dashboard routes if no active Supabase Auth token is present
@@ -75,6 +76,7 @@ const App = () => {
           <Route path="reviews" element={<Reviews />} />
           <Route path="integrations" element={<Integrations />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="profile" element={<Profile />} />
           <Route path="help" element={<HelpCenter />} />
         </Route>
 
