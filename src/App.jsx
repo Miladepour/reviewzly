@@ -10,6 +10,7 @@ import SmsHub from './pages/SmsHub';
 import Settings from './pages/Settings';
 import HelpCenter from './pages/HelpCenter';
 import Login from './pages/Login';
+import ManagePlan from './pages/ManagePlan';
 import Landing from './pages/Landing';
 import Terms from './pages/Terms';
 import ReviewCapture from './pages/ReviewCapture';
@@ -81,6 +82,7 @@ const App = () => {
           <Route path="reviews" element={<Reviews />} />
           <Route path="sms" element={<SmsHub />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="plan" element={<ManagePlan />} />
           <Route path="profile" element={<Profile />} />
           <Route path="help" element={<HelpCenter />} />
           <Route path="admin" element={<SuperAdmin />} />

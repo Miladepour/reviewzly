@@ -82,37 +82,6 @@ const SmsHub = () => {
     }
   };
 
-  const handleCheckout = async (creditAmount) => {
-    setIsCheckingOut(true);
-    addToast(`Initializing secure connection to Stripe for ${creditAmount} credits...`, "success");
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Authentication missing.");
-
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ creditAmount })
-      });
-
-      if (!res.ok) {
-        let errContext = "Hardware rejection.";
-        try { const errData = await res.json(); errContext = errData.error; } catch(e){}
-        throw new Error(errContext);
-      }
-
-      const { url } = await res.json();
-      window.location.href = url; // Push user to sandbox
-
-    } catch(err) {
-      addToast(err.message, "error");
-      setIsCheckingOut(false);
-    }
-  };
-
   if (loading) return <div style={{ padding: '2rem' }}>Loading SMS command center...</div>;
 
   return (
@@ -174,31 +143,6 @@ const SmsHub = () => {
               </div>
             )}
           </form>
-        </div>
-      </div>
-
-      {/* Stripe Checkout Top-Up Packages */}
-      <div style={{ marginBottom: '3rem' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--on-surface)', marginBottom: '1rem' }}>Recharge Global Balance</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-          {[
-            { credits: 100, price: '$5.00' },
-            { credits: 250, price: '$10.00' },
-            { credits: 500, price: '$18.00' }
-          ].map(tier => (
-            <div key={tier.credits} style={{ padding: '2rem', borderRadius: '1rem', border: '2px solid var(--outline-variant)', backgroundColor: 'var(--surface-container-lowest)', textAlign: 'center', transition: 'transform 0.2s, border-color 0.2s', cursor: 'pointer' }} onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseOut={e => e.currentTarget.style.borderColor = 'var(--outline-variant)'}>
-               <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary-dark)', marginBottom: '0.25rem' }}>{tier.credits} SMS</h3>
-               <p style={{ fontSize: '1.15rem', color: 'var(--on-surface-variant)', fontWeight: 600, marginBottom: '1.5rem' }}>{tier.price}</p>
-               <button 
-                  onClick={() => handleCheckout(tier.credits)} 
-                  disabled={isCheckingOut}
-                  className="btn-primary" 
-                  style={{ width: '100%', padding: '0.85rem', borderRadius: '0.5rem', fontSize: '1rem', fontWeight: 700, opacity: isCheckingOut ? 0.6 : 1 }}
-               >
-                  {isCheckingOut ? 'Routing...' : 'Purchase Package'}
-               </button>
-            </div>
-          ))}
         </div>
       </div>
 

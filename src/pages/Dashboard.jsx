@@ -263,7 +263,7 @@ const Dashboard = () => {
               <button 
                  type="button" 
                  style={{ backgroundColor: '#2e7d32', color: 'white', border: 'none', padding: '0.35rem 0', fontSize: '0.75rem', fontWeight: 700, borderRadius: '0.5rem', cursor: 'pointer', textAlign: 'center', width: '100px' }} 
-                 onClick={() => { /* Placeholder for future Stripe/Billing Hookup */ }}
+                 onClick={() => { navigate('/dashboard/plan'); }}
               >
                  Top-Up Credit
               </button>

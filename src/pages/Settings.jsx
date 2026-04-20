@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
 
 const Settings = () => {
+  const location = useLocation();
   const addToast = useToast();
   const [activeTab, setActiveTab] = useState('workspace');
   const [isSaving, setIsSaving] = useState(false);
@@ -17,6 +19,14 @@ const Settings = () => {
   const [reviewSms, setReviewSms] = useState('');
   const [rewardSms, setRewardSms] = useState('Hi {{client_name}}! Thanks for the 5-stars. Here is our official Google link: {{google_link}}');
   const [birthdaySms, setBirthdaySms] = useState('');
+
+  useEffect(() => {
+    // Intercept exact routing tab from global navigation components
+    const params = new URLSearchParams(location.search);
+    if (params.get('tab')) {
+      setActiveTab(params.get('tab'));
+    }
+  }, [location.search]);
 
   useEffect(() => {
     const fetchBusiness = async () => {

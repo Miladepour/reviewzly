@@ -11,15 +11,17 @@ export async function onRequestPost({ request, env }) {
     
     // Map Pricing Tiers Programmatically (prevent client-side manipulation)
     const pricingMap = {
-      100: 500,    // $5.00
-      250: 1000,   // $10.00
-      500: 1800    // $18.00
+      100: { price: 3000, name: 'Starter Spark' },     // £30.00
+      250: { price: 6500, name: 'Growth Rocket' },   // £65.00
+      500: { price: 12500, name: 'Enterprise Titan' } // £125.00
     };
 
-    const unitAmount = pricingMap[creditAmount];
-    if (!unitAmount) {
+    const tierData = pricingMap[creditAmount];
+    if (!tierData) {
       return new Response(JSON.stringify({ error: "Invalid configuration. That tier does not exist natively." }), { status: 400 });
     }
+    const unitAmount = tierData.price;
+    const planName = tierData.name;
 
     // 2. Validate Identity using Supabase Auth (Ensure we get their accurate Business ID)
     const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
@@ -45,16 +47,22 @@ export async function onRequestPost({ request, env }) {
     // URL Encode payload perfectly for native Stripe REST Form Data
     const formData = new URLSearchParams();
     formData.append('payment_method_types[0]', 'card');
-    formData.append('mode', 'payment');
-    formData.append('line_items[0][price_data][currency]', 'usd');
-    formData.append('line_items[0][price_data][product_data][name]', `Reviewzly ${creditAmount} SMS Credits`);
+    formData.append('mode', 'subscription');
+    formData.append('line_items[0][price_data][currency]', 'gbp');
+    formData.append('line_items[0][price_data][recurring][interval]', 'month');
+    formData.append('line_items[0][price_data][product_data][name]', `Reviewzly ${planName} Plan (${creditAmount} SMS)`);
     formData.append('line_items[0][price_data][unit_amount]', unitAmount.toString());
     formData.append('line_items[0][quantity]', '1');
     formData.append('client_reference_id', businessId);
-    formData.append('metadata[credit_amount]', creditAmount.toString());
+    
+    // Inject custom variables into the Subscription object directly so the webhook can extract them forever
+    formData.append('subscription_data[metadata][business_id]', businessId);
+    formData.append('subscription_data[metadata][credit_amount]', creditAmount.toString());
+    formData.append('subscription_data[metadata][plan_tier]', planName);
+    
     // Auto-return the user back to the native dashboard instantly
-    formData.append('success_url', `${new URL(request.url).origin}/dashboard/sms?payment=success`);
-    formData.append('cancel_url', `${new URL(request.url).origin}/dashboard/sms?payment=cancelled`);
+    formData.append('success_url', `${new URL(request.url).origin}/dashboard/plan?payment=success`);
+    formData.append('cancel_url', `${new URL(request.url).origin}/dashboard/plan?payment=cancelled`);
 
     const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
         method: "POST",

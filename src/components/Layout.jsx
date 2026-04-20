@@ -128,7 +128,7 @@ const Layout = () => {
         </nav>
 
         <div className="mt-auto flex flex-col gap-2 pt-6">
-          <button className="btn-primary" style={{ padding: '0.875rem', width: '100%', marginBottom: '1.5rem', justifyContent: 'center' }}>Upgrade Plan</button>
+          <button onClick={() => navigate('/dashboard/plan')} className="btn-primary" style={{ padding: '0.875rem', width: '100%', marginBottom: '1.5rem', justifyContent: 'center', cursor: 'pointer' }}>Manage Plan</button>
           
           <NavLink to="/dashboard/help" className={({ isActive }) => `nav-link mt-8 ${isActive ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
