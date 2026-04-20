@@ -35,10 +35,16 @@ const Integrations = () => {
     // Natively inject the API tokens directly into Postgres
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-       await supabase.from('businesses').update({
+       const { data, error } = await supabase.from('businesses').update({
            voodoo_api_key: apiKey,
            voodoo_sender_id: senderId
-       }).eq('id', session.user.id);
+       }).eq('id', session.user.id).select();
+
+       if (error || !data || data.length === 0) {
+           setIsSaving(false);
+           addToast("Security Block: Unauthorized backend modification failed.", "error");
+           return;
+       }
     }
     
     setIsSaving(false);

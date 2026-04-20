@@ -61,18 +61,19 @@ const Clients = () => {
       e.preventDefault();
       setIsSavingEdit(true);
       try {
-          const { error } = await supabase.from('clients').update({
+          const { data, error } = await supabase.from('clients').update({
               name: editName, phone: editPhone, email: editEmail, dob: editDob
-          }).eq('id', activeClient.id);
+          }).eq('id', activeClient.id).select();
           
-          if (!error) {
-              setClients(clients.map(c => c.id === activeClient.id ? { ...c, name: editName, phone: editPhone, email: editEmail, dob: editDob } : c));
-              setActiveClient({ ...activeClient, name: editName, phone: editPhone, email: editEmail, dob: editDob });
-              setIsEditMode(false);
-          } else { throw error; }
+          if (error) throw error;
+          if (!data || data.length === 0) throw new Error("RLS Authorization Failed. Zero rows affected.");
+          
+          setClients(clients.map(c => c.id === activeClient.id ? { ...c, name: editName, phone: editPhone, email: editEmail, dob: editDob } : c));
+          setActiveClient({ ...activeClient, name: editName, phone: editPhone, email: editEmail, dob: editDob });
+          setIsEditMode(false);
       } catch (err) {
-          displayNotice('Error saving client edits', true);
-          addToast("Failed to fetch CRM dataset payload.", "error");
+          displayNotice('Error saving client edits: Unauthorized', true);
+          addToast("Failed to mutate CRM dataset. Blocked by security firewall.", "error");
       } finally { setIsSavingEdit(false); }
   };
   
@@ -269,12 +270,17 @@ const Clients = () => {
   const handleDeleteClient = async (e, clientId) => {
     e.stopPropagation();
     if (window.confirm("Are you sure you want to completely erase this contact and their history?")) {
-        const { error } = await supabase.from('clients').delete().eq('id', clientId);
-        if (!error) {
-            setClients(prev => prev.filter(c => c.id !== clientId));
-        } else {
+        // Enforce RLS feedback loop by forcing Supabase to return the mathematically deleted rows
+        const { data, error } = await supabase.from('clients').delete().eq('id', clientId).select();
+        
+        if (error) {
             displayNotice("Error deleting client.", true);
             addToast("Failed to permanently delete client record.", "error");
+        } else if (!data || data.length === 0) {
+            displayNotice("Security Block: You are not authorized to delete this.", true);
+            addToast("RLS Violation: Unauthorized Action Blocked.", "error");
+        } else {
+            setClients(prev => prev.filter(c => c.id !== clientId));
         }
     }
   };

@@ -1,5 +1,21 @@
+// Lightweight Edge memory cache against bot loops per node
+const ipBlocklist = new Map();
+
 export async function onRequestPost({ request, env }) {
   try {
+    // 0. IP Rate Limiting Firewall
+    const ip = request.headers.get('cf-connecting-ip');
+    if (ip) {
+      const hits = ipBlocklist.get(ip) || 0;
+      if (hits >= 10) {
+        return new Response(JSON.stringify({ error: "STRICT RATE LIMIT EXCEEDED. Remote brute-force blocked." }), { 
+            status: 429, headers: { 'Content-Type': 'application/json' } 
+        });
+      }
+      ipBlocklist.set(ip, hits + 1);
+      setTimeout(() => ipBlocklist.delete(ip), 60000); // 60-second moving window
+    }
+
     // 1. Parse Incoming Payload (NO AUTH HEADER REQUIRED - THIS IS A PUBLIC LINK)
     let payload;
     try {
