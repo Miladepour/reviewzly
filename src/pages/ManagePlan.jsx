@@ -123,7 +123,28 @@ const ManagePlan = () => {
           </p>
         </div>
         {activePlan !== 'Free Tier' && activePlan !== 'Cancelled' && activePlan !== 'Loading...' && (
-            <button className="btn-secondary" style={{ color: '#dc2626', border: '1px solid #dc2626' }} onClick={() => setShowCancelModal(true)}>
+            <button 
+                onClick={() => setShowCancelModal(true)}
+                style={{ 
+                    padding: '0.4rem 0.8rem', 
+                    borderRadius: '0.4rem', 
+                    backgroundColor: 'transparent', 
+                    color: 'var(--on-surface-variant)', 
+                    border: '1px solid var(--outline-variant)', 
+                    fontWeight: 500, 
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--surface-container-high)';
+                    e.currentTarget.style.color = 'var(--on-surface)';
+                }}
+                onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--on-surface-variant)';
+                }}
+            >
                 Cancel Subscription
             </button>
         )}
@@ -225,19 +246,19 @@ const ManagePlan = () => {
 
       {/* CANCELLATION MODAL */}
       {showCancelModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-              <div className="card" style={{ width: '100%', maxWidth: '500px', backgroundColor: 'var(--surface)' }}>
-                  <h3 className="text-display-md mb-2" style={{ color: '#dc2626' }}>Terminate Subscription</h3>
-                  <p className="text-body mb-6">Before you go, please let us know why you are canceling your active subscription sequence.</p>
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+              <div className="card" style={{ width: '100%', maxWidth: '480px', backgroundColor: 'var(--surface)', borderRadius: '1rem', padding: '2rem' }}>
+                  <h3 className="text-display-md mb-2" style={{ color: 'var(--on-surface)', fontWeight: 800 }}>Manage Subscription</h3>
+                  <p className="text-body mb-6" style={{ color: 'var(--on-surface-variant)' }}>Before you go, please let us know why you are considering canceling your active sequence.</p>
                   
                   <form onSubmit={executeCancellation}>
-                      <div className="flex flex-col gap-2 mb-6">
-                          <label className="text-label-sm">Primary Reason*</label>
+                      <div className="flex flex-col gap-2 mb-8">
+                          <label className="text-label-sm" style={{ fontWeight: 600 }}>Primary Reason*</label>
                           <select 
                             value={cancelReason} 
                             onChange={(e) => setCancelReason(e.target.value)}
                             required
-                            style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', width: '100%', appearance: 'none', backgroundColor: 'var(--surface-container-lowest)' }}
+                            style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', width: '100%', backgroundColor: 'var(--surface-container-lowest)', color: 'var(--on-surface)', fontSize: '1rem' }}
                           >
                               <option value="" disabled>Select a reason...</option>
                               <option value="Too Expensive">It's too expensive</option>
@@ -249,10 +270,48 @@ const ManagePlan = () => {
                           </select>
                       </div>
                       
-                      <div className="flex justify-end gap-3 mt-8">
-                          <button type="button" className="btn-secondary" onClick={() => setShowCancelModal(false)} disabled={isCancelling}>Keep Subscription</button>
-                          <button type="submit" className="btn-primary" style={{ backgroundColor: '#dc2626' }} disabled={isCancelling}>
-                              {isCancelling ? 'Killing Sequence...' : 'Confirm Termination'}
+                      <div className="flex flex-col gap-3">
+                          <button 
+                            type="button" 
+                            onClick={() => setShowCancelModal(false)} 
+                            disabled={isCancelling}
+                            style={{ 
+                                padding: '1rem', 
+                                borderRadius: '0.5rem', 
+                                backgroundColor: 'var(--primary)', 
+                                color: 'white', 
+                                fontWeight: 700, 
+                                fontSize: '1.05rem',
+                                border: 'none', 
+                                cursor: 'pointer',
+                                transition: 'opacity 0.2s',
+                                width: '100%'
+                            }}
+                            onMouseOver={e => e.currentTarget.style.opacity = 0.9}
+                            onMouseOut={e => e.currentTarget.style.opacity = 1}
+                          >
+                            Keep Subscription Active
+                          </button>
+
+                          <button 
+                            type="submit" 
+                            disabled={isCancelling}
+                            style={{ 
+                                padding: '0.85rem', 
+                                borderRadius: '0.5rem', 
+                                backgroundColor: 'transparent', 
+                                color: 'var(--on-surface-variant)', 
+                                fontWeight: 600, 
+                                fontSize: '0.95rem',
+                                border: 'none', 
+                                cursor: 'pointer',
+                                transition: 'color 0.2s',
+                                width: '100%'
+                            }}
+                            onMouseOver={e => e.currentTarget.style.color = '#dc2626'}
+                            onMouseOut={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                          >
+                              {isCancelling ? 'Processing termination...' : 'Confirm Termination'}
                           </button>
                       </div>
                   </form>

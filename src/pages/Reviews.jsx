@@ -33,6 +33,7 @@ const Reviews = () => {
                    name: c.name,
                    date: c.created_at,
                    rating: ratingNum,
+                   content: c.feedback || c.comment || c.feedback_text || c.notes || '',
                    source: c.rating_status.includes('Google') ? 'Google Redirect' : 'Internal Caught'
                }
            });
@@ -142,6 +143,13 @@ const Reviews = () => {
                     </span>
                   </div>
                 </div>
+                
+                {review.content && (
+                  <div style={{ marginTop: '0.5rem', padding: '1rem', backgroundColor: review.source === 'Google Redirect' ? '#f5f5f5' : 'rgba(255, 140, 66, 0.1)', borderRadius: '0.5rem', color: 'var(--on-surface)', fontStyle: 'italic', lineHeight: 1.5 }}>
+                    "{review.content}"
+                  </div>
+                )}
+
               </div>
             )) : <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--on-surface-variant)' }}>No feedback matching criteria yet. Check back when campaigns are live!</div>}
           </div>
