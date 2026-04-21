@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
+import { normalizePhone } from '../utils/formatters';
 
 const Dashboard = () => {
   const addToast = useToast();
@@ -102,31 +103,48 @@ const Dashboard = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
+      const cleanTargetPhone = normalizePhone(clientPhone);
+      const isDuplicate = clients.some(c => normalizePhone(c.phone) === cleanTargetPhone);
+      
+      if (isDuplicate) {
+          addToast("A client with this mobile number already exists in your system.", "error");
+          setMessage("Blocked: Identical contact legally exists.");
+          setIsSending(false);
+          return;
+      }
+      
+      // Fetch business settings safely isolated
+      const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
+
+      // Mathematically schedule the next action (Review Invite)
+      const delayHours = bData?.delay_hours_for_invite || 2;
+      const nextActionDate = new Date();
+      nextActionDate.setHours(nextActionDate.getHours() + delayHours);
+
       // Physically insert the client into Postgres
       const { data: clientData, error } = await supabase.from('clients').insert([{
         business_id: session.user.id,
         name: clientName,
-        phone: clientPhone,
+        phone: cleanTargetPhone,
         email: clientEmail || null,
         dob: clientDob || null,
-        tags: ['Quick Add']
+        tags: ['Quick Add'],
+        drip_step: 1,
+        next_action_time: nextActionDate.toISOString()
       }]).select().single();
 
       if (error) throw error;
 
-      // === NEW: Automated SMS Dispatch ===
-      const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
+      // === NEW: Automated SMS Dispatch (Welcome Text Only) ===
+      let dispatchLogText = `Client securely added. Review Invite aggressively queued for ${delayHours} hours from now.`;
       
-      let dispatchLogText = 'Client added without SMS (No template).';
+      const welcomeTemplate = bData?.welcome_sms;
       
-      const template = bData?.review_sms || 'Hi {{client_name}}! Thanks for visiting {{business_name}}. Please leave us a review: {{review_link}}';
-      
-      if (template) {
-          // Parse dynamic template variables
-          let finalSms = template
+      if (welcomeTemplate && welcomeTemplate.trim() !== '') {
+          // Parse dynamic template variables for the Welcome sequence
+          let finalSms = welcomeTemplate
               .replace(/{{business_name}}/g, bData?.name || 'Our Business')
-              .replace(/{{client_name}}/g, clientName || 'there')
-              .replace(/{{review_link}}/g, `${window.location.origin}/r/${clientData.short_code}`);
+              .replace(/{{client_name}}/g, clientName || 'there');
               
           try {
              const destPhone = clientPhone.replace(/[^0-9]/g, '');
@@ -166,7 +184,7 @@ const Dashboard = () => {
          is_outbound: true
       }]);
 
-      setMessage('Client accurately created in Database and Voodoo sequence initiated.');
+      setMessage('Client securely vaulted into queue. Drip campaign successfully initialized!');
       setClientName('');
       setClientPhone('');
       setClientEmail('');
@@ -327,7 +345,24 @@ const Dashboard = () => {
             </button>
           </div>
         </form>
-        {message && <p className="mt-4 tag-light-green" style={{ fontSize: '0.85rem', width: '100%', justifyContent: 'center' }}>{message}</p>}
+        {message && (
+          <div 
+             className={`mt-4 flex ${message.includes('Blocked') || message.includes('Error') ? '' : 'tag-light-green'}`}
+             style={{ 
+                fontSize: '0.85rem', 
+                width: '100%', 
+                justifyContent: 'center', 
+                padding: '0.75rem', 
+                borderRadius: '0.5rem', 
+                backgroundColor: message.includes('Blocked') || message.includes('Error') ? '#fee2e2' : undefined,
+                color: message.includes('Blocked') || message.includes('Error') ? '#dc2626' : undefined,
+                fontWeight: 700,
+                border: message.includes('Blocked') || message.includes('Error') ? '1px solid #fca5a5' : undefined
+             }}
+          >
+             {message.toUpperCase()}
+          </div>
+        )}
       </div>
 
       {/* 2 Column Layout - Carousels */}

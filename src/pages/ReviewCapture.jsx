@@ -5,7 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 
 const ReviewCapture = () => {
   const { businessName: shortCode } = useParams();
-  
+
   const [businessInfo, setBusinessInfo] = useState(null);
   const [clientInfo, setClientInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,17 +25,17 @@ const ReviewCapture = () => {
     const fetchProfile = async () => {
       try {
         if (!shortCode) return;
-        
+
         // MOCK UI INTERCEPT: If testing via "Preview Live Flow"
         if (shortCode === 'Xp9vD2') {
-           const { data: { session } } = await supabase.auth.getSession();
-           if (session) {
-               const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
-               setBusinessInfo(bData);
-               setClientInfo({ id: 'dummy-demo', name: 'Valued Client' });
-               setIsLoading(false);
-               return;
-           }
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
+            setBusinessInfo(bData);
+            setClientInfo({ id: 'dummy-demo', name: 'Valued Client' });
+            setIsLoading(false);
+            return;
+          }
         }
 
         // Bypassing RLS Securely via Database RPC
@@ -63,57 +63,57 @@ const ReviewCapture = () => {
       if (selectedRating === 5) {
         setStep('1A'); // Google Flow
         if (businessInfo) {
-           if (clientInfo) {
-               // Execute the Secure Cloudflare Proxy to physically text them the Google Link
-               fetch('/api/public_sms_reward', {
-                   method: 'POST',
-                   headers: { 'Content-Type': 'application/json' },
-                   body: JSON.stringify({ uid: clientInfo.id })
-               }).then(r => r.json()).then(res => {
-                   if (res.error) {
-                      addToast("SMS Error: " + res.error + (res.details ? " | " + res.details : ""), 'error');
-                   }
-               }).catch(e => addToast("Network Crash: " + e.message, 'error'));
-           } else {
-               // Untracked fallback dummy-ping
-               supabase.from('clients').insert([{
-                  business_id: businessInfo.id,
-                  name: 'Anonymous 5-Star Intent',
-                  phone: 'Unknown',
-                  tags: ['Public Review Link'],
-                  rating_status: '5-Star Redirect'
-               }]).then(()=>{});
-           }
+          if (clientInfo) {
+            // Execute the Secure Cloudflare Proxy to physically text them the Google Link
+            fetch('/api/public_sms_reward', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: clientInfo.id })
+            }).then(r => r.json()).then(res => {
+              if (res.error) {
+                addToast("SMS Error: " + res.error + (res.details ? " | " + res.details : ""), 'error');
+              }
+            }).catch(e => addToast("Network Crash: " + e.message, 'error'));
+          } else {
+            // Untracked fallback dummy-ping
+            supabase.from('clients').insert([{
+              business_id: businessInfo.id,
+              name: 'Anonymous 5-Star Intent',
+              phone: 'Unknown',
+              tags: ['Public Review Link'],
+              rating_status: '5-Star Redirect'
+            }]).then(() => { });
+          }
         }
       } else {
         setStep('1B'); // Internal Flow
       }
-    }, 400); 
+    }, 400);
   };
 
   const handleInternalSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    try {
-        if (clientInfo && businessInfo) {
-            // Bypass strict database RLS wall natively via Secure RPC
-            const { error } = await supabase.rpc('submit_internal_feedback', {
-                p_client_id: clientInfo.id,
-                p_rating: rating,
-                p_feedback: feedback,
-                p_name: name,
-                p_phone: phone
-            });
 
-            if (error) {
-                addToast("Failed to save feedback securely.", "error");
-            }
+    try {
+      if (clientInfo && businessInfo) {
+        // Bypass strict database RLS wall natively via Secure RPC
+        const { error } = await supabase.rpc('submit_internal_feedback', {
+          p_client_id: clientInfo.id,
+          p_rating: rating,
+          p_feedback: feedback,
+          p_name: name,
+          p_phone: phone
+        });
+
+        if (error) {
+          addToast("Failed to save feedback securely.", "error");
         }
-    } catch(err) {
-        addToast("Critical structural failure submitting feedback.", "error");
+      }
+    } catch (err) {
+      addToast("Critical structural failure submitting feedback.", "error");
     }
-    
+
     setTimeout(() => {
       setIsSubmitting(false);
       setStep(2); // Final Thank You
@@ -121,27 +121,27 @@ const ReviewCapture = () => {
   };
 
   if (isLoading) {
-      return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading Review Portal...</div>;
+    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading Review Portal...</div>;
   }
 
   if (!isLoading && !businessInfo) {
-      return (
-          <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-             <h2>Business Not Found</h2>
-             <p style={{ opacity: 0.6 }}>The requested review link is inactive or invalid.</p>
-          </div>
-      )
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+        <h2>Business Not Found</h2>
+        <p style={{ opacity: 0.6 }}>The requested review link is inactive or invalid.</p>
+      </div>
+    )
   }
 
   return (
     <div style={{ backgroundColor: 'var(--surface-container-lowest)', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      
+
       {/* Maximum width constraint to ensure it looks like a mobile app even on desktop */}
       <div className="card" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem 2rem', textAlign: 'center', boxShadow: 'var(--shadow-md)', borderRadius: '1.5rem', backgroundColor: 'white' }}>
-        
+
         <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: businessInfo?.brand_color || 'var(--surface-container-low)', margin: '0 auto 2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           <span style={{ fontSize: '2rem', color: 'white', fontWeight: 700 }}>
-             {businessInfo?.name ? businessInfo.name.charAt(0).toUpperCase() : '★'}
+            {businessInfo?.name ? businessInfo.name.charAt(0).toUpperCase() : '★'}
           </span>
         </div>
 
@@ -150,15 +150,15 @@ const ReviewCapture = () => {
           <div className="fade-in">
             <h1 className="text-display-xl mb-2" style={{ fontSize: '1.75rem', color: '#102A14' }}>How was your visit?</h1>
             <p className="text-body mb-8" style={{ fontSize: '1rem' }}>Please rate your recent experience at <strong>{businessInfo?.name || "our business"}</strong>.</p>
-            
+
             <div className="flex justify-center gap-2 mb-4" onMouseLeave={() => setHoverRating(0)}>
               {[1, 2, 3, 4, 5].map((star) => (
-                <svg 
+                <svg
                   key={star}
-                  viewBox="0 0 24 24" 
-                  style={{ 
-                    width: '56px', 
-                    height: '56px', 
+                  viewBox="0 0 24 24"
+                  style={{
+                    width: '56px',
+                    height: '56px',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
                     fill: (hoverRating || rating) >= star ? (businessInfo?.brand_color || 'var(--primary)') : 'transparent',
@@ -173,15 +173,15 @@ const ReviewCapture = () => {
                 </svg>
               ))}
             </div>
-            
+
             {/* Dynamic text based on hover */}
             <p className="mt-6 text-label-sm" style={{ height: '20px', color: hoverRating === 5 ? (businessInfo?.brand_color || 'var(--primary)') : 'var(--on-surface-variant)', fontWeight: hoverRating === 5 ? 700 : 500 }}>
-               {hoverRating === 5 && "Incredible! I'd recommend it."}
-               {hoverRating === 4 && "Great, but room for improvement."}
-               {hoverRating === 3 && "It was okay."}
-               {hoverRating === 2 && "Not great."}
-               {hoverRating === 1 && "Terrible experience."}
-               {hoverRating === 0 && "Tap a star to rate"}
+              {hoverRating === 5 && "Incredible! I'd recommend it."}
+              {hoverRating === 4 && "Great, but room for improvement."}
+              {hoverRating === 3 && "It was okay."}
+              {hoverRating === 2 && "Not great."}
+              {hoverRating === 1 && "Terrible experience."}
+              {hoverRating === 0 && "Tap a star to rate"}
             </p>
           </div>
         )}
@@ -195,10 +195,10 @@ const ReviewCapture = () => {
             <h1 className="text-display-xl mb-3" style={{ fontSize: '1.75rem', color: '#102A14' }}>Amazing!</h1>
             <p className="text-body mb-8" style={{ fontSize: '1.05rem', lineHeight: 1.5, textAlign: 'left', padding: '0 0.5rem' }}>
               We are so thrilled you had a 5-star experience! We rely heavily on <strong>Google Reviews</strong> to grow our local business.
-              <br/><br/>
+              <br /><br />
               <b>We have just sent you an SMS</b> containing our direct Google Link. It means the absolute world to us if you could post your rating there!
             </p>
-            
+
             <button className="btn-primary" style={{ padding: '1.25rem 2rem', width: '100%', display: 'flex', justifyContent: 'center', fontSize: '1.1rem', marginBottom: '1rem', backgroundColor: businessInfo?.brand_color || 'var(--primary)', border: 'none' }} onClick={() => setStep(2)}>
               Close Window
             </button>
@@ -210,9 +210,9 @@ const ReviewCapture = () => {
           <div className="fade-in" style={{ textAlign: 'left' }}>
             <h1 className="text-display-xl mb-2" style={{ fontSize: '1.75rem', color: '#102A14' }}>We want to fix this.</h1>
             <p className="text-body mb-6" style={{ fontSize: '0.95rem', lineHeight: 1.5 }}>
-               😔 We are profoundly sorry that your experience wasn't absolutely perfect. We strive for perfect service. Please tell our management team what happened so we can make this right.
+              😔 We are profoundly sorry that your experience wasn't absolutely perfect. We strive for perfect service. Please tell our management team what happened so we can make this right.
             </p>
-            
+
             <form onSubmit={handleInternalSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <label className="text-label-sm">Your Name*</label>
@@ -226,7 +226,7 @@ const ReviewCapture = () => {
                 <label className="text-label-sm">What went wrong?</label>
                 <textarea rows="4" required style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', width: '100%', resize: 'none' }} value={feedback} onChange={e => setFeedback(e.target.value)}></textarea>
               </div>
-              
+
               <button type="submit" className="btn-primary" style={{ padding: '1rem', width: '100%', justifyContent: 'center', marginTop: '0.5rem', backgroundColor: '#e84545', border: 'none' }} disabled={isSubmitting}>
                 {isSubmitting ? 'Sending securely...' : 'Submit Feedback'}
               </button>
@@ -237,19 +237,34 @@ const ReviewCapture = () => {
         {/* STEP 2: COMPLETION */}
         {step === 2 && (
           <div className="fade-in">
-             <div style={{ display: 'inline-flex', marginBottom: '1rem', color: businessInfo?.brand_color || 'var(--primary)' }}>
+            <div style={{ display: 'inline-flex', marginBottom: '1rem', color: businessInfo?.brand_color || 'var(--primary)' }}>
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             </div>
             <h1 className="text-display-xl mb-2" style={{ fontSize: '1.75rem', color: '#102A14' }}>Thank You!</h1>
-             <p className="text-body" style={{ fontSize: '1.05rem', lineHeight: 1.5 }}>
+            <p className="text-body" style={{ fontSize: '1.05rem', lineHeight: 1.5 }}>
               Your response has been securely recorded. Have a wonderful rest of your day!
             </p>
           </div>
         )}
 
       </div>
-      
-      <p className="text-label-sm mt-8" style={{ opacity: 0.5 }}>Powered securely by Reviewzly</p>
+
+      <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+        {clientInfo && clientInfo.id !== 'dummy-demo' && (
+          <button
+            onClick={async () => {
+              if (window.confirm("Are you sure you want to stop receiving texts from this business?")) {
+                await supabase.rpc('unsubscribe_client', { p_client_id: clientInfo.id });
+                alert("You have been successfully unsubscribed. You will no longer receive any texts.");
+              }
+            }}
+            style={{ background: 'none', border: 'none', color: 'var(--on-surface-variant)', fontSize: '0.8rem', textDecoration: 'underline', cursor: 'pointer', opacity: 0.8 }}
+          >
+            Unsubscribe from SMS
+          </button>
+        )}
+        <p className="text-label-sm" style={{ opacity: 0.5 }}>Powered securely by Reviewzly</p>
+      </div>
     </div>
   );
 };

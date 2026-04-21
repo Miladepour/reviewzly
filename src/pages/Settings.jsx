@@ -16,8 +16,12 @@ const Settings = () => {
   const [recoveryEmail, setRecoveryEmail] = useState('');
 
   // Templates State
+  const [welcomeSms, setWelcomeSms] = useState('');
+  const [delayHours, setDelayHours] = useState(2);
   const [reviewSms, setReviewSms] = useState('');
   const [rewardSms, setRewardSms] = useState('Hi {{client_name}}! Thanks for the 5-stars. Here is our official Google link: {{google_link}}');
+  const [followUpSms, setFollowUpSms] = useState('');
+  const [followUpDays, setFollowUpDays] = useState(7);
   const [birthdaySms, setBirthdaySms] = useState('');
 
   useEffect(() => {
@@ -37,8 +41,12 @@ const Settings = () => {
          setBusinessName(data.name || '');
          setGmbUrl(data.gmb_url || '');
          setRecoveryEmail(data.recovery_email || '');
+         setWelcomeSms(data.welcome_sms || '');
+         setDelayHours(data.delay_hours_for_invite || 2);
          setReviewSms(data.review_sms || 'Hi {{client_name}}! Thanks for visiting {{business_name}}. Please leave us a review: {{review_link}}');
          setRewardSms(data.reward_sms || 'Hi {{client_name}}! Thanks for the 5-stars. Here is our official Google link: {{google_link}}');
+         setFollowUpSms(data.follow_up_sms || '');
+         setFollowUpDays(data.follow_up_days || 7);
          setBirthdaySms(data.birthday_sms || '');
          setBrandColor(data.brand_color || '#00a84d');
        }
@@ -60,8 +68,12 @@ const Settings = () => {
          name: businessName,
          gmb_url: gmbUrl,
          recovery_email: recoveryEmail,
+         welcome_sms: welcomeSms,
+         delay_hours_for_invite: delayHours,
          review_sms: reviewSms,
          reward_sms: rewardSms,
+         follow_up_sms: followUpSms,
+         follow_up_days: followUpDays,
          birthday_sms: birthdaySms,
          brand_color: brandColor
       };
@@ -213,9 +225,30 @@ const Settings = () => {
                 <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{google_link}}`}</span>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-label-sm" style={{ fontWeight: 700 }}>Review Request SMS Outline</label>
-                <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Sent instantly via the Quick Setup form or Directory.</p>
+              <div className="flex gap-4">
+                  <div className="flex flex-col gap-2 flex-1 relative">
+                    <label className="text-label-sm" style={{ fontWeight: 700 }}>Instant Welcome Message</label>
+                    <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Sent immediately upon adding client to Database.</p>
+                    <textarea 
+                      rows="3"
+                      style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%', resize: 'vertical' }}
+                      value={welcomeSms}
+                      onChange={(e) => setWelcomeSms(e.target.value)}
+                      placeholder="Leave blank to disable instant text"
+                    />
+                    <span className="text-label-sm" style={{ alignSelf: 'flex-end', opacity: 0.6 }}>{welcomeSms.length} / 160 chars</span>
+                  </div>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-4 relative" style={{ padding: '1rem', borderLeft: '4px solid var(--primary)', backgroundColor: 'var(--surface-container-lowest)' }}>
+                <div className="flex justify-between items-center mb-2">
+                    <label className="text-label-sm" style={{ fontWeight: 700 }}>Delayed Review Invite (Step 1)</label>
+                    <div className="flex items-center gap-2">
+                        <span className="text-label-sm">Delay Hours:</span>
+                        <input type="number" min="0" max="72" value={delayHours} onChange={(e) => setDelayHours(Number(e.target.value))} style={{ padding: '0.25rem 0.5rem', width: '60px', borderRadius: '0.25rem', border: '1px solid var(--outline)' }} />
+                    </div>
+                </div>
+                <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Automatically fired X hours after the Welcome Text.</p>
                 <textarea 
                   rows="4"
                   style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%', resize: 'vertical' }}
@@ -223,7 +256,26 @@ const Settings = () => {
                   onChange={(e) => setReviewSms(e.target.value)}
                   required
                 />
-                <span className="text-label-sm" style={{ alignSelf: 'flex-end', opacity: 0.6 }}>{reviewSms.length} / 160 chars (1 SMS segment)</span>
+                <span className="text-label-sm" style={{ alignSelf: 'flex-end', opacity: 0.6 }}>{reviewSms.length} / 160 chars</span>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-4 relative" style={{ padding: '1rem', borderLeft: '4px solid var(--primary)', backgroundColor: 'var(--surface-container-lowest)' }}>
+                <div className="flex justify-between items-center mb-2">
+                    <label className="text-label-sm" style={{ fontWeight: 700 }}>Follow-Up Reminder (Step 2)</label>
+                    <div className="flex items-center gap-2">
+                        <span className="text-label-sm">Delay Days:</span>
+                        <input type="number" min="1" max="30" value={followUpDays} onChange={(e) => setFollowUpDays(Number(e.target.value))} style={{ padding: '0.25rem 0.5rem', width: '60px', borderRadius: '0.25rem', border: '1px solid var(--outline)' }} />
+                    </div>
+                </div>
+                <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Automatically fired if they haven't clicked the link in X days.</p>
+                <textarea 
+                  rows="3"
+                  style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%', resize: 'vertical' }}
+                  value={followUpSms}
+                  onChange={(e) => setFollowUpSms(e.target.value)}
+                  placeholder="Leave blank to disable follow-up"
+                />
+                <span className="text-label-sm" style={{ alignSelf: 'flex-end', opacity: 0.6 }}>{followUpSms.length} / 160 chars</span>
               </div>
 
               <div className="flex flex-col gap-2 mt-4">

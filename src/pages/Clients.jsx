@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
+import { normalizePhone } from '../utils/formatters';
 
 const Clients = () => {
   const addToast = useToast();
@@ -61,8 +62,18 @@ const Clients = () => {
       e.preventDefault();
       setIsSavingEdit(true);
       try {
+          const cleanTargetPhone = normalizePhone(editPhone);
+          const isDuplicate = clients.some(c => c.id !== activeClient.id && normalizePhone(c.phone) === cleanTargetPhone);
+          
+          if (isDuplicate) {
+              displayNotice('Editing blocked: Another client already uses this mobile number.', true);
+              addToast('Duplicate phone number detected.', 'error');
+              setIsSavingEdit(false);
+              return;
+          }
+
           const { data, error } = await supabase.from('clients').update({
-              name: editName, phone: editPhone, email: editEmail, dob: editDob
+              name: editName, phone: cleanTargetPhone, email: editEmail, dob: editDob
           }).eq('id', activeClient.id).select();
           
           if (error) throw error;
@@ -90,26 +101,42 @@ const Clients = () => {
       setIsAdding(true);
 
       try {
-          const { data: { session } } = await supabase.auth.getSession();
+          const cleanTargetPhone = normalizePhone(addPhone);
+          const isDuplicate = clients.some(c => normalizePhone(c.phone) === cleanTargetPhone);
+          
+          if (isDuplicate) {
+              displayNotice("A client with this exact mobile number already exists.", true);
+              addToast("Blocked: Duplicate phone number.", "error");
+              setIsAdding(false);
+              return;
+          }
+
+          const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
+          
+          const delayHours = bData?.delay_hours_for_invite || 2;
+          const nextActionDate = new Date();
+          nextActionDate.setHours(nextActionDate.getHours() + delayHours);
+
           const { data: clientData, error } = await supabase.from('clients').insert([{
             business_id: session.user.id,
             name: addName,
-            phone: addPhone,
+            phone: cleanTargetPhone,
             email: addEmail || null,
             dob: addDob || null,
-            tags: ['Directory Add']
+            tags: ['Directory Add'],
+            drip_step: 1,
+            next_action_time: nextActionDate.toISOString()
           }]).select().single();
 
           if (error) throw error;
 
-          const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
-          let dispatchLogText = 'Client added without SMS (No template).';
+          let dispatchLogText = `Client dynamically queued. Review scheduled globally for ${delayHours} hours from now.`;
 
-          if (bData && bData.review_sms) {
-              let finalSms = bData.review_sms
+          const welcomeTemplate = bData?.welcome_sms;
+          if (welcomeTemplate && welcomeTemplate.trim() !== '') {
+              let finalSms = welcomeTemplate
                   .replace(/{{business_name}}/g, bData.name || 'Our Business')
-                  .replace(/{{client_name}}/g, addName || 'there')
-                  .replace(/{{review_link}}/g, `${window.location.origin}/r/${bData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
+                  .replace(/{{client_name}}/g, addName || 'there');
 
               try {
                   const destPhone = addPhone.replace(/[^0-9]/g, '');
@@ -167,7 +194,15 @@ const Clients = () => {
         const bid = session.user.id;
         const { data: bData } = await supabase.from('businesses').select('*').eq('id', bid).single();
 
+        const delayHours = bData?.delay_hours_for_invite || 2;
+        const baseNextActionDate = new Date();
+        baseNextActionDate.setHours(baseNextActionDate.getHours() + delayHours);
+
         let importedCount = 0;
+        let skippedCount = 0;
+        
+        // Track new numbers added within this batch to prevent duplicates inside the CSV itself
+        const inMemoryBatchPhones = new Set(clients.map(c => normalizePhone(c.phone)));
 
         for (const row of rows) {
             const cols = row.split(',').map(c => c.trim());
@@ -176,24 +211,33 @@ const Clients = () => {
             
             if (!cName || !cPhone) continue;
 
+            const cleanCsvPhone = normalizePhone(cPhone);
+            if (inMemoryBatchPhones.has(cleanCsvPhone)) {
+                skippedCount++;
+                continue;
+            }
+            inMemoryBatchPhones.add(cleanCsvPhone);
+
             const { data: clientData, error } = await supabase.from('clients').insert([{
               business_id: bid,
               name: cName,
-              phone: cPhone,
-              tags: ['CSV Import']
+              phone: cleanCsvPhone,
+              tags: ['CSV Import'],
+              drip_step: 1,
+              next_action_time: baseNextActionDate.toISOString()
             }]).select().single();
 
             if (!error && clientData) {
                 importedCount++;
                 
                 // Fire Automated SMS Template if exists
-                let dispatchLogText = 'Added via CSV without SMS (No template).';
+                let dispatchLogText = 'Added via mass queue without SMS.';
                 
-                if (bData && bData.review_sms) {
-                    let finalSms = bData.review_sms
+                const welcomeTemplate = bData?.welcome_sms;
+                if (welcomeTemplate && welcomeTemplate.trim() !== '') {
+                    let finalSms = welcomeTemplate
                         .replace(/{{business_name}}/g, bData.name || 'Our Business')
-                        .replace(/{{client_name}}/g, cName || 'there')
-                        .replace(/{{review_link}}/g, `${window.location.origin}/r/${bData.name?.toLowerCase().replace(/ /g, '-') || 'reviewzly-pro'}`);
+                        .replace(/{{client_name}}/g, cName || 'there');
                     
                     try {
                        const destPhone = cPhone.replace(/[^0-9]/g, '');
@@ -232,7 +276,7 @@ const Clients = () => {
             }
         }
         
-        displayNotice(`Successfully imported ${importedCount} clients and routed automated sequences!`);
+        displayNotice(`Successfully imported ${importedCount} unique clients. Skipped ${skippedCount} duplicates.`);
         setIsImportModalOpen(false);
         const { data } = await supabase.from('clients').select('*').eq('business_id', bid).order('created_at', { ascending: false });
         if(data) setClients(data);
@@ -418,7 +462,7 @@ John Doe, 15551234567
 Alice Smith, 14449876543`}
                 </pre>
                 <p className="text-label-sm mt-4 text-orange-600" style={{ fontWeight: 700, color: '#e84545' }}>
-                  CAUTION: Importing clients will instantly execute the Automated SMS Dispatch using your Review Template! Wait time is proportionate to file size.
+                  CAUTION: Importing clients will instantly enqueue them for automated sequential Drip Campaigns! Do not upload previously engaged pipelines.
                 </p>
              </div>
              
