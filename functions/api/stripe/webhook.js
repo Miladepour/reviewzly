@@ -32,11 +32,13 @@ export async function onRequestPost({ request, env }) {
     if (verifiedEvent.type === 'invoice.payment_succeeded') {
         const invoice = verifiedEvent.data.object;
         
+        // Unify Subscription ID Extraction (handles both modern 2026 Stripe API & legacy root structures)
+        const subId = invoice.subscription || invoice.parent?.subscription_details?.subscription;
+        
         // Skip invoices not bound to a subscription (e.g. one-offs)
-        if (invoice.subscription) {
-            
+        if (subId) {
             // Query Stripe for the parent subscription to retrieve our secure metadata variables
-            const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${invoice.subscription}`, {
+            const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subId}`, {
                 headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
             });
             const subscriptionObj = await subRes.json();
@@ -76,7 +78,7 @@ export async function onRequestPost({ request, env }) {
                     headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}` },
                     body: JSON.stringify({ 
                         stripe_customer_id: invoice.customer,
-                        stripe_subscription_id: invoice.subscription,
+                        stripe_subscription_id: subId,
                         active_plan: planTier
                     })
                 });
