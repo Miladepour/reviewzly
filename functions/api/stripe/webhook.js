@@ -45,6 +45,10 @@ export async function onRequestPost({ request, env }) {
             const creditAmount = parseInt(subscriptionObj.metadata?.credit_amount || '0', 10);
             const planTier = subscriptionObj.metadata?.plan_tier || 'Active Tier';
             
+            if (!businessId) {
+                throw new Error("CRITICAL: Stripe Webhook cannot find business_id in the subscription metadata! Metadata missing.");
+            }
+            
             if (businessId && creditAmount > 0) {
                 // Unlock the global master key for background ledger upgrades
                 const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
@@ -61,8 +65,13 @@ export async function onRequestPost({ request, env }) {
                     body: JSON.stringify({ p_biz_id: businessId, p_amount: creditAmount })
                 });
 
+                if (!rpcRes.ok) {
+                    const rpcErr = await rpcRes.text();
+                    throw new Error("Supabase RPC failed to add credits: " + rpcErr);
+                }
+
                 // 2. PATCH IDENTITY into the exact Business Profile
-                await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}`, {
+                const patchRes = await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}` },
                     body: JSON.stringify({ 
@@ -71,6 +80,11 @@ export async function onRequestPost({ request, env }) {
                         active_plan: planTier
                     })
                 });
+
+                if (!patchRes.ok) {
+                    const patchErr = await patchRes.text();
+                    throw new Error("Supabase PATCH failed to bind identity: " + patchErr);
+                }
                 
                 // 3. DISPATCH RECEIPT VIA RESEND
                 if (env.RESEND_API_KEY && invoice.customer_email) {
