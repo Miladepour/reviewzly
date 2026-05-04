@@ -90,8 +90,8 @@ export async function onRequestPost({ request, env }) {
         if (!deductRes.ok) continue;
 
         // 6. VOODOO NETWORK HANDOFF
-        if (!bData.voodoo_api_key) {
-             await logComm(supabaseUrl, serviceRole, client.id, bData.id, `[CRON ERROR] Voodoo API credentials missing.`);
+        if (!env.VOODOO_API_KEY) {
+             await logComm(supabaseUrl, serviceRole, client.id, bData.id, `[CRON ERROR] Voodoo API credentials missing in Edge ENV.`);
              await pushClientQueue(supabaseUrl, serviceRole, client.id, nextStepIndex, nextActionTime);
              continue;
         }
@@ -105,7 +105,7 @@ export async function onRequestPost({ request, env }) {
 
         const voodooResponse = await fetch("https://api.voodoosms.com/sendsms", {
              method: "POST",
-             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${bData.voodoo_api_key}` },
+             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${env.VOODOO_API_KEY}` },
              body: JSON.stringify(voodooPayload)
         });
 
