@@ -117,7 +117,7 @@ const Dashboard = () => {
       const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
 
       // Mathematically schedule the next action (Review Invite)
-      const delayHours = bData?.delay_hours_for_invite || 2;
+      const delayHours = bData?.delay_hours_for_invite ?? 2;
       const nextActionDate = new Date();
       nextActionDate.setHours(nextActionDate.getHours() + delayHours);
 

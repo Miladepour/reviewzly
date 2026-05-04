@@ -42,7 +42,7 @@ const Settings = () => {
          setGmbUrl(data.gmb_url || '');
          setRecoveryEmail(data.recovery_email || '');
          setWelcomeSms(data.welcome_sms || '');
-         setDelayHours(data.delay_hours_for_invite || 2);
+         setDelayHours(data.delay_hours_for_invite ?? 2);
          setReviewSms(data.review_sms || 'Hi {{client_name}}! Thanks for visiting {{business_name}}. Please leave us a review: {{review_link}}');
          setRewardSms(data.reward_sms || 'Hi {{client_name}}! Thanks for the 5-stars. Here is our official Google link: {{google_link}}');
          setFollowUpSms(data.follow_up_sms || '');

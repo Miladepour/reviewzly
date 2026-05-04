@@ -113,7 +113,7 @@ const Clients = () => {
 
           const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
           
-          const delayHours = bData?.delay_hours_for_invite || 2;
+          const delayHours = bData?.delay_hours_for_invite ?? 2;
           const nextActionDate = new Date();
           nextActionDate.setHours(nextActionDate.getHours() + delayHours);
 
@@ -194,7 +194,7 @@ const Clients = () => {
         const bid = session.user.id;
         const { data: bData } = await supabase.from('businesses').select('*').eq('id', bid).single();
 
-        const delayHours = bData?.delay_hours_for_invite || 2;
+        const delayHours = bData?.delay_hours_for_invite ?? 2;
         const baseNextActionDate = new Date();
         baseNextActionDate.setHours(baseNextActionDate.getHours() + delayHours);
 
