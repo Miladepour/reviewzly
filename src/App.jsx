@@ -16,6 +16,7 @@ import Terms from './pages/Terms';
 import ReviewCapture from './pages/ReviewCapture';
 import Profile from './pages/Profile';
 import SuperAdmin from './pages/SuperAdmin';
+import OptOut from './pages/OptOut';
 import { supabase } from './supabaseClient';
 
 // INTERCEPTOR: Walls off all /dashboard routes if no active Supabase Auth token is present
@@ -66,6 +67,7 @@ const App = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/r/:businessName" element={<ReviewCapture />} />
+        <Route path="/opt-out" element={<OptOut />} />
 
         {/* SECURE ROUTES: Wrapped in ProtectedRoute Interceptor */}
         <Route path="/dashboard" element={

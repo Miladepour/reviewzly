@@ -68,7 +68,8 @@ export async function onRequestPost({ request, env }) {
 
     const finalSms = customTemplate
        .replace(/{{client_name}}/g, clientName || 'there')
-       .replace(/{{google_link}}/g, gmbUrl || 'https://google.com');
+       .replace(/{{google_link}}/g, gmbUrl || 'https://google.com')
+       .replace(/{{unsubscribe_link}}/g, `https://${new URL(request.url).hostname}/opt-out?b=${rpcData.business_id || ''}`);
 
     // 4. VOODOO SMS NETWORK HANDOFF
     if (!env.VOODOO_API_KEY) {

@@ -223,6 +223,7 @@ const Settings = () => {
                 <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{business_name}}`}</span>
                 <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{review_link}}`}</span>
                 <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{google_link}}`}</span>
+                <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{unsubscribe_link}}`}</span>
               </div>
 
               <div className="flex gap-4">

@@ -136,7 +136,8 @@ const Clients = () => {
           if (welcomeTemplate && welcomeTemplate.trim() !== '') {
               let finalSms = welcomeTemplate
                   .replace(/{{business_name}}/g, bData.name || 'Our Business')
-                  .replace(/{{client_name}}/g, addName || 'there');
+                  .replace(/{{client_name}}/g, addName || 'there')
+                  .replace(/{{unsubscribe_link}}/g, window.location.origin + '/opt-out?b=' + session.user.id);
 
               try {
                   const destPhone = addPhone.replace(/[^0-9]/g, '');
@@ -237,7 +238,8 @@ const Clients = () => {
                 if (welcomeTemplate && welcomeTemplate.trim() !== '') {
                     let finalSms = welcomeTemplate
                         .replace(/{{business_name}}/g, bData.name || 'Our Business')
-                        .replace(/{{client_name}}/g, cName || 'there');
+                        .replace(/{{client_name}}/g, cName || 'there')
+                        .replace(/{{unsubscribe_link}}/g, window.location.origin + '/opt-out?b=' + session.user.id);
                     
                     try {
                        const destPhone = cPhone.replace(/[^0-9]/g, '');

@@ -79,7 +79,8 @@ export async function onRequestPost({ request, env }) {
         const finalSms = smsTemplate
             .replace(/{{business_name}}/g, bData.name || 'Our Business')
             .replace(/{{client_name}}/g, client.name || 'there')
-            .replace(/{{review_link}}/g, `https://${new URL(request.url).hostname}/r/${client.short_code}`);
+            .replace(/{{review_link}}/g, `https://${new URL(request.url).hostname}/r/${client.short_code}`)
+            .replace(/{{unsubscribe_link}}/g, `https://${new URL(request.url).hostname}/opt-out?b=${bData.id}`);
 
         const deductRes = await fetch(`${supabaseUrl}/rest/v1/rpc/add_sms_credits`, {
             method: 'POST',
