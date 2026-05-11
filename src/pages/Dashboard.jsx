@@ -75,14 +75,14 @@ const Dashboard = () => {
                       setGoogleStats({ rating: gData.rating, total_reviews: gData.total_reviews });
                       if (gData.reviews) setGoogleReviews(gData.reviews);
                   }
-              }).catch(e => addToast("Background Cache Update Failed", "error"));
+              }).catch(() => addToast("Background Cache Update Failed", "error"));
           }
 
       } else {
           setSmsBalance('No Data');
       }
 
-    } catch (e) {
+    } catch {
       addToast("Failed to fetch dashboard intelligence.", "error");
       setMessage(`Network Sync Error: Could not reliably reach Database. Please check connection.`);
       setTimeout(() => setMessage(''), 6000);
@@ -194,7 +194,7 @@ const Dashboard = () => {
       await fetchDashboardData();
 
       setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
+    } catch {
       addToast('Error saving client. Please try again.', 'error');
     } finally {
       setIsSending(false);
@@ -214,9 +214,6 @@ const Dashboard = () => {
   const totalRatings = ratedClients.length;
   const googlePercent = totalRatings > 0 ? Math.round((fiveStarGoogleCount / totalRatings) * 100) : 0;
   const internalPercent = totalRatings > 0 ? Math.round((internallyCaughtCount / totalRatings) * 100) : 0;
-
-  // Render recent 3
-  const recentFeedbackList = ratedClients.slice(0, 3);
 
   if (isLoading) return <div style={{ padding: '2rem' }}>Processing live analytics...</div>;
 
@@ -238,9 +235,9 @@ const Dashboard = () => {
 
       {/* Unified 3-Metric Box */}
       <div className="card mb-6" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="flex flex-col md-flex-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)' }}>
+        <div className="dashboard-metrics-grid">
           
-          <div style={{ padding: '2rem', borderRight: '1px solid var(--outline-variant)' }}>
+          <div className="dashboard-metric-card">
             <p className="val-sub">Total Clients</p>
             <div className="flex justify-between items-center mt-2 flex-wrap gap-2">
               <h2 className="text-display-xl" style={{ fontSize: '2.5rem' }}>{totalClients}</h2>
@@ -248,20 +245,20 @@ const Dashboard = () => {
             </div>
           </div>
           
-          <div style={{ padding: '2rem', borderRight: '1px solid var(--outline-variant)' }}>
+          <div className="dashboard-metric-card">
             <p className="val-sub">Public Google Rating</p>
             <div className="flex justify-between items-center mt-2 flex-wrap gap-2">
               <h2 className="text-display-xl" style={{ fontSize: '2.5rem' }}>{Number(googleStats.rating).toFixed(1)}</h2>
               <div className="flex flex-col text-right">
                 <div className="flex justify-end text-title-lg" style={{ color: 'var(--primary)', letterSpacing: '2px' }}>
-                  {Array.from({ length: Math.round(googleStats.rating || 5) }).map((_, i) => '★').join('')}
+                  {Array.from({ length: Math.round(googleStats.rating || 5) }).map(() => '★').join('')}
                 </div>
                 <span className="text-label-sm" style={{ color: 'var(--on-surface-variant)' }}>{googleStats.total_reviews} Reviews</span>
               </div>
             </div>
           </div>
 
-          <div style={{ padding: '2rem', backgroundColor: '#e8f5e9', display: 'flex', justifyContent: 'space-between', alignItems: 'stretch' }}>
+          <div className="dashboard-metric-card sms-balance-card">
             <div className="flex flex-col justify-between">
               <p className="val-sub" style={{ color: '#2e7d32' }}>Platform SMS Balance</p>
               <h2 className="text-display-xl" style={{ fontSize: '3rem', color: '#1b5e20', lineHeight: 1 }}>{smsBalance}</h2>
@@ -436,7 +433,7 @@ const Dashboard = () => {
                            <p className="text-label-sm mt-1">{r.relative_time_description}</p>
                         </div>
                         <span className="text-title-md" style={{ color: 'var(--primary)' }}>
-                           {Array.from({ length: Math.round(r.rating || 5) }).map((_, i) => '★').join('')}
+                           {Array.from({ length: Math.round(r.rating || 5) }).map(() => '★').join('')}
                         </span>
                       </div>
                       {r.text && <p className="text-body mt-2" style={{ fontSize: '0.85rem', opacity: 0.9 }}>"{r.text}"</p>}
@@ -494,8 +491,8 @@ const Dashboard = () => {
           </div>
         </div>
         
-        <div className="mt-6 flex justify-between items-end">
-          <div className="bar-chart-container" style={{ flex: 1, height: '80px', marginRight: '2rem' }}>
+        <div className="sentiment-footer mt-6">
+          <div className="bar-chart-container sentiment-chart">
             <div className="bar-wrapper"><div className="bar highlight" style={{ height: '30%' }}></div></div>
             <div className="bar-wrapper"><div className="bar highlight" style={{ height: '50%' }}></div></div>
             <div className="bar-wrapper"><div className="bar highlight" style={{ height: '80%' }}></div></div>
