@@ -1,3 +1,5 @@
+import { normalizeReviewLinksInMessage } from './smsLinkUtils.js';
+
 export async function onRequestPost({ request, env }) {
   try {
     // 1. Verify Authorization Header (Ensure user is logged in)
@@ -14,10 +16,12 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Invalid JSON payload structure." }), { status: 400, headers: { 'Content-Type': 'application/json' }});
     }
 
-    const { dest, msg, clientName, scheduledDateTime } = payload;
+    const { dest, msg, clientName, scheduledDateTime, shortCode } = payload;
     if (!dest || !msg) {
       return new Response(JSON.stringify({ error: "Destination phone number and message content are strictly required." }), { status: 400, headers: { 'Content-Type': 'application/json' }});
     }
+
+    const normalizedMsg = normalizeReviewLinksInMessage(msg, shortCode || null);
 
     // 3. SECURE SUPABASE TRANSACTION
     // Call the RPC function 'execute_sms_transaction' using the user's specific JWT token.
@@ -76,7 +80,7 @@ export async function onRequestPost({ request, env }) {
     const voodooPayload = {
       from: senderId,
       to: dest,
-      msg: msg
+      msg: normalizedMsg
     };
     // Voodoo request param is "schedule" (UNIX ts or e.g. "3 minutes") — NOT scheduledDateTime
     if (scheduledDateTime && Number(scheduledDateTime) > Math.floor(Date.now() / 1000)) {

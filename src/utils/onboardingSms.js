@@ -1,16 +1,16 @@
 import { supabase } from '../supabaseClient';
-import { buildReviewLink, buildOptOutLink } from './smsLinks';
+import { buildReviewLink, buildOptOutLink, normalizeReviewLinksInMessage } from './smsLinks';
 
 /** Voodoo requires ≥120s lead time; use 3 minutes for reliable spacing. */
 const REVIEW_SCHEDULE_SECONDS = 180;
 
 function buildSmsFromTemplate(template, { bData, clientName, clientData, businessId }) {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://reviewzly.com';
-  return template
+  const parsed = template
     .replace(/{{business_name}}/g, bData.name || 'Our Business')
     .replace(/{{client_name}}/g, clientName || 'there')
-    .replace(/{{review_link}}/g, buildReviewLink(clientData.short_code, origin))
-    .replace(/{{unsubscribe_link}}/g, buildOptOutLink(businessId, origin));
+    .replace(/{{review_link}}/g, buildReviewLink(clientData.short_code))
+    .replace(/{{unsubscribe_link}}/g, buildOptOutLink(businessId));
+  return normalizeReviewLinksInMessage(parsed, clientData.short_code);
 }
 
 async function logComm(clientId, businessId, text) {
@@ -23,8 +23,8 @@ async function logComm(clientId, businessId, text) {
   });
 }
 
-async function sendSms({ destPhone, msg, clientName, session, scheduledDateTime }) {
-  const body = { dest: destPhone, msg, clientName };
+async function sendSms({ destPhone, msg, clientName, session, scheduledDateTime, shortCode }) {
+  const body = { dest: destPhone, msg, clientName, shortCode };
   if (scheduledDateTime) body.scheduledDateTime = scheduledDateTime;
 
   const res = await fetch('/api/send_sms', {
@@ -95,6 +95,7 @@ export async function dispatchOnboardingSms({
       msg: welcomeMsg,
       clientName,
       session,
+      shortCode: clientData.short_code,
     });
     if (ok) {
       logs.push(`[WELCOME SUBMITTED]${detail} ${welcomeMsg}`);
@@ -113,6 +114,7 @@ export async function dispatchOnboardingSms({
       clientName,
       session,
       scheduledDateTime,
+      shortCode: clientData.short_code,
     });
     if (ok) {
       await advanceToFollowUp(clientData.id, bData);

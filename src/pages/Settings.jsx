@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
+import { sanitizeReviewSmsTemplate } from '../utils/smsLinks';
 
 const Settings = () => {
   const location = useLocation();
@@ -43,9 +44,9 @@ const Settings = () => {
          setRecoveryEmail(data.recovery_email || '');
          setWelcomeSms(data.welcome_sms || '');
          setDelayHours(data.delay_hours_for_invite ?? 2);
-         setReviewSms(data.review_sms || 'Hi {{client_name}}! Thanks for visiting {{business_name}}. Please leave us a review: {{review_link}}');
+         setReviewSms(sanitizeReviewSmsTemplate(data.review_sms || 'Hi {{client_name}}! Thanks for visiting {{business_name}}. Please leave us a review: {{review_link}}'));
          setRewardSms(data.reward_sms || 'Hi {{client_name}}! Thanks for the 5-stars. Here is our official Google link: {{google_link}}');
-         setFollowUpSms(data.follow_up_sms || '');
+         setFollowUpSms(sanitizeReviewSmsTemplate(data.follow_up_sms || ''));
          setFollowUpDays(data.follow_up_days || 7);
          setBirthdaySms(data.birthday_sms || '');
          setBrandColor(data.brand_color || '#00a84d');
@@ -70,9 +71,9 @@ const Settings = () => {
          recovery_email: recoveryEmail,
          welcome_sms: welcomeSms,
          delay_hours_for_invite: delayHours,
-         review_sms: reviewSms,
+         review_sms: sanitizeReviewSmsTemplate(reviewSms),
          reward_sms: rewardSms,
-         follow_up_sms: followUpSms,
+         follow_up_sms: sanitizeReviewSmsTemplate(followUpSms),
          follow_up_days: followUpDays,
          birthday_sms: birthdaySms,
          brand_color: brandColor

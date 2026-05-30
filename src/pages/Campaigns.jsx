@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
-import { buildReviewLink } from '../utils/smsLinks';
+import { useToast } from '../contexts/ToastContext';
+import { buildReviewLink, normalizeReviewLinksInMessage } from '../utils/smsLinks';
 
 const Campaigns = () => {
   const addToast = useToast();
@@ -120,10 +121,13 @@ const Campaigns = () => {
               setDispatchStatus(`Sending ${i + 1} of ${predictedCost}... (${client.name})`);
 
               // Apply variables to user's custom typed message
-              let finalSms = customMessage
+              let finalSms = normalizeReviewLinksInMessage(
+                customMessage
                   .replace(/{{business_name}}/g, businessData.name || 'Our Team')
                   .replace(/{{client_name}}/g, client.name || 'there')
-                  .replace(/{{review_link}}/g, buildReviewLink(client.short_code));
+                  .replace(/{{review_link}}/g, buildReviewLink(client.short_code)),
+                client.short_code
+              );
 
               let dispatchLogText = '';
               const destPhone = client.phone.replace(/[^0-9]/g, '');
@@ -135,7 +139,7 @@ const Campaigns = () => {
                           'Authorization': `Bearer ${session.access_token}`,
                           'Content-Type': 'application/json'
                       },
-                      body: JSON.stringify({ dest: destPhone, msg: finalSms, clientName: client.name })
+                      body: JSON.stringify({ dest: destPhone, msg: finalSms, clientName: client.name, shortCode: client.short_code })
                   });
                   
                   if (vRes.ok) {

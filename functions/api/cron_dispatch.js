@@ -1,3 +1,5 @@
+import { normalizeReviewLinksInMessage } from './smsLinkUtils.js';
+
 export async function onRequestPost({ request, env }) {
   try {
     // 1. HARD SECURITY LOCK
@@ -76,11 +78,14 @@ export async function onRequestPost({ request, env }) {
         }
 
         // 5. PARSE SMS & DEDUCT EXACTLY 1 CREDIT NATIVELY
-        const finalSms = smsTemplate
-            .replace(/{{business_name}}/g, bData.name || 'Our Business')
-            .replace(/{{client_name}}/g, client.name || 'there')
-            .replace(/{{review_link}}/g, `https://reviewzly.com/review/${client.short_code}`)
-            .replace(/{{unsubscribe_link}}/g, `https://reviewzly.com/opt-out?b=${bData.id}`);
+        const finalSms = normalizeReviewLinksInMessage(
+            smsTemplate
+                .replace(/{{business_name}}/g, bData.name || 'Our Business')
+                .replace(/{{client_name}}/g, client.name || 'there')
+                .replace(/{{review_link}}/g, `https://reviewzly.com/review/${client.short_code}`)
+                .replace(/{{unsubscribe_link}}/g, `https://reviewzly.com/opt-out?b=${bData.id}`),
+            client.short_code
+        );
 
         const deductRes = await fetch(`${supabaseUrl}/rest/v1/rpc/add_sms_credits`, {
             method: 'POST',
