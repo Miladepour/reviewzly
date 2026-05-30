@@ -5,11 +5,12 @@ import { buildReviewLink, buildOptOutLink } from './smsLinks';
 const REVIEW_SCHEDULE_SECONDS = 180;
 
 function buildSmsFromTemplate(template, { bData, clientName, clientData, businessId }) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://reviewzly.com';
   return template
     .replace(/{{business_name}}/g, bData.name || 'Our Business')
     .replace(/{{client_name}}/g, clientName || 'there')
-    .replace(/{{review_link}}/g, buildReviewLink(clientData.short_code))
-    .replace(/{{unsubscribe_link}}/g, buildOptOutLink(businessId));
+    .replace(/{{review_link}}/g, buildReviewLink(clientData.short_code, origin))
+    .replace(/{{unsubscribe_link}}/g, buildOptOutLink(businessId, origin));
 }
 
 async function logComm(clientId, businessId, text) {

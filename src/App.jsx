@@ -67,6 +67,7 @@ const App = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/r/:businessName" element={<ReviewCapture />} />
+        <Route path="/review/:businessName" element={<ReviewCapture />} />
         <Route path="/opt-out" element={<OptOut />} />
 
         {/* SECURE ROUTES: Wrapped in ProtectedRoute Interceptor */}

@@ -249,7 +249,7 @@ const Settings = () => {
                         <input type="number" min="0" max="72" value={delayHours} onChange={(e) => setDelayHours(Number(e.target.value))} style={{ padding: '0.25rem 0.5rem', width: '60px', borderRadius: '0.25rem', border: '1px solid var(--outline)' }} />
                     </div>
                 </div>
-                <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Automatically fired X hours after the Welcome Text.</p>
+                <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Automatically fired X hours after the Welcome Text. Use <code>{'{{review_link}}'}</code> for your Reviewzly rating page — do not paste your Google link here (Google links are sent automatically after a 5-star rating).</p>
                 <textarea 
                   rows="4"
                   style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%', resize: 'vertical' }}

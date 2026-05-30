@@ -79,8 +79,8 @@ export async function onRequestPost({ request, env }) {
         const finalSms = smsTemplate
             .replace(/{{business_name}}/g, bData.name || 'Our Business')
             .replace(/{{client_name}}/g, client.name || 'there')
-            .replace(/{{review_link}}/g, `reviewzly.com/r/${client.short_code}`)
-            .replace(/{{unsubscribe_link}}/g, `reviewzly.com/opt-out?b=${bData.id}`);
+            .replace(/{{review_link}}/g, `https://reviewzly.com/review/${client.short_code}`)
+            .replace(/{{unsubscribe_link}}/g, `https://reviewzly.com/opt-out?b=${bData.id}`);
 
         const deductRes = await fetch(`${supabaseUrl}/rest/v1/rpc/add_sms_credits`, {
             method: 'POST',
