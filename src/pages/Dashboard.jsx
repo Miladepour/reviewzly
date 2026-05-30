@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
 import { normalizePhone } from '../utils/formatters';
+import { dispatchImmediateReviewSms } from '../utils/immediateReviewSms';
 
 const Dashboard = () => {
   const addToast = useToast();
@@ -117,7 +118,7 @@ const Dashboard = () => {
       const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
 
       // Mathematically schedule the next action (Review Invite)
-      const delayHours = bData?.delay_hours_for_invite ?? 2;
+      const delayHours = Number(bData?.delay_hours_for_invite ?? 2);
       const nextActionDate = new Date();
       nextActionDate.setHours(nextActionDate.getHours() + delayHours);
 
@@ -173,6 +174,19 @@ const Dashboard = () => {
              addToast("Dispatch Error targeting API payload: " + err.message, "error");
              dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
           }
+      }
+
+      const reviewResult = await dispatchImmediateReviewSms({
+        delayHours,
+        bData,
+        clientData,
+        clientName,
+        destPhoneRaw: cleanTargetPhone,
+        session,
+        businessId: session.user.id,
+      });
+      if (Number(delayHours) === 0 && reviewResult.reason === 'no_credits') {
+        addToast('Insufficient SMS Credits for review message.', 'warning');
       }
 
       // Automatically log the result to the history timeline

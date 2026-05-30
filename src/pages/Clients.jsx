@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
 import { normalizePhone } from '../utils/formatters';
+import { dispatchImmediateReviewSms } from '../utils/immediateReviewSms';
 
 const Clients = () => {
   const addToast = useToast();
@@ -113,7 +114,7 @@ const Clients = () => {
 
           const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
           
-          const delayHours = bData?.delay_hours_for_invite ?? 2;
+          const delayHours = Number(bData?.delay_hours_for_invite ?? 2);
           const nextActionDate = new Date();
           nextActionDate.setHours(nextActionDate.getHours() + delayHours);
 
@@ -159,6 +160,19 @@ const Clients = () => {
               }
           }
 
+          const reviewResult = await dispatchImmediateReviewSms({
+            delayHours,
+            bData,
+            clientData,
+            clientName: addName,
+            destPhoneRaw: cleanTargetPhone,
+            session,
+            businessId: session.user.id,
+          });
+          if (Number(delayHours) === 0 && reviewResult.reason === 'no_credits') {
+            displayNotice('Insufficient SMS Credits for review message.', true);
+          }
+
           await supabase.from('communications').insert([{
              client_id: clientData.id, business_id: session.user.id, type: 'BULK_CAMPAIGN', text: dispatchLogText, is_outbound: true
           }]);
@@ -195,7 +209,7 @@ const Clients = () => {
         const bid = session.user.id;
         const { data: bData } = await supabase.from('businesses').select('*').eq('id', bid).single();
 
-        const delayHours = bData?.delay_hours_for_invite ?? 2;
+        const delayHours = Number(bData?.delay_hours_for_invite ?? 2);
         const baseNextActionDate = new Date();
         baseNextActionDate.setHours(baseNextActionDate.getHours() + delayHours);
 
@@ -267,6 +281,16 @@ const Clients = () => {
                        dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
                     }
                 }
+
+                await dispatchImmediateReviewSms({
+                  delayHours,
+                  bData,
+                  clientData,
+                  clientName: cName,
+                  destPhoneRaw: cleanCsvPhone,
+                  session,
+                  businessId: bid,
+                });
                 
                 await supabase.from('communications').insert([{
                    client_id: clientData.id,
