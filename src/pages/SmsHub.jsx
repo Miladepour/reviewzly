@@ -114,10 +114,16 @@ const SmsHub = () => {
         {/* Sender ID Config Card */}
         <div style={{ padding: '2rem', borderRadius: '1.5rem', backgroundColor: 'var(--surface-container-lowest)', border: '1px solid var(--outline-variant)' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>Transmission Identity</h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', marginBottom: '1.5rem' }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', marginBottom: '1rem' }}>
             This is exactly what appears on your client's mobile Caller ID. Max 11 characters.
           </p>
-          
+
+          <div style={{ padding: '0.75rem 0.9rem', borderLeft: '4px solid #c47f00', backgroundColor: '#fff8ec', borderRadius: '0.5rem', marginBottom: '1.25rem' }}>
+            <p style={{ fontSize: '0.8rem', color: '#5a4500', lineHeight: 1.4 }}>
+              <strong>⚠️ Custom Sender IDs must be registered with our SMS network.</strong> Since 31 Oct 2023, UK carriers (BT/EE) block unregistered brand names — messages are charged but silently fail (“Not Delivered”). If unsure, leave this blank to send from the verified <strong>Reviewzly</strong> sender, which always delivers.
+            </p>
+          </div>
+
           <form onSubmit={handleSaveSenderId} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <input 
               type="text" 
@@ -125,9 +131,8 @@ const SmsHub = () => {
               pattern="[A-Za-z0-9]+"
               value={senderId}
               onChange={(e) => setSenderId(e.target.value.replace(/[^A-Za-z0-9]/g, ''))}
-              placeholder="e.g. Reviewzly"
+              placeholder="Leave blank to use Reviewzly"
               style={{ width: '100%', padding: '1rem', fontSize: '1.25rem', fontFamily: 'monospace', fontWeight: 700, borderRadius: '0.75rem', border: '2px solid var(--outline)', outline: 'none' }}
-              required
             />
             <button 
               type="submit" 
