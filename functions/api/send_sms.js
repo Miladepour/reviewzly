@@ -76,15 +76,25 @@ export async function onRequestPost({ request, env }) {
       body: JSON.stringify(voodooPayload)
     });
 
+    const voodooBodyText = await voodooResponse.text();
     if (!voodooResponse.ok) {
-       let errorDetails = "Unknown Network Error";
-       try { errorDetails = await voodooResponse.text(); } catch(e) {}
-       console.error("Voodoo API Frame Error:", errorDetails);
-       return new Response(JSON.stringify({ error: "Telecom network rejection.", details: errorDetails }), { status: 502, headers: { 'Content-Type': 'application/json' }});
+       console.error("Voodoo API Frame Error:", voodooBodyText);
+       return new Response(JSON.stringify({ error: "Telecom network rejection.", details: voodooBodyText }), { status: 502, headers: { 'Content-Type': 'application/json' }});
     }
 
-    // Mission Accomplished
-    return new Response(JSON.stringify({ success: true, message: "Transmission completed successfully." }), { status: 200, headers: { 'Content-Type': 'application/json' }});
+    let voodooMessageId = null;
+    try {
+      const parsed = JSON.parse(voodooBodyText);
+      voodooMessageId = parsed?.messages?.[0]?.id || parsed?.reference_id?.[0] || null;
+    } catch {
+      /* non-JSON Voodoo payloads still count as ok when HTTP succeeded */
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: "Transmission completed successfully.",
+      voodooMessageId,
+    }), { status: 200, headers: { 'Content-Type': 'application/json' }});
 
   } catch (error) {
     console.error("Cloudflare Edge Pipeline Crash:", error);

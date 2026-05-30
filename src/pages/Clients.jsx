@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
 import { normalizePhone } from '../utils/formatters';
-import { dispatchImmediateReviewSms } from '../utils/immediateReviewSms';
+import { dispatchOnboardingSms } from '../utils/onboardingSms';
 
 const Clients = () => {
   const addToast = useToast();
@@ -131,51 +131,33 @@ const Clients = () => {
 
           if (error) throw error;
 
-          let dispatchLogText = `Client dynamically queued. Review scheduled globally for ${delayHours} hours from now.`;
-
-          const welcomeTemplate = bData?.welcome_sms;
-          if (welcomeTemplate && welcomeTemplate.trim() !== '') {
-              let finalSms = welcomeTemplate
-                  .replace(/{{business_name}}/g, bData.name || 'Our Business')
-                  .replace(/{{client_name}}/g, addName || 'there')
-                  .replace(/{{unsubscribe_link}}/g, window.location.origin + '/opt-out?b=' + session.user.id);
-
-              try {
-                  const destPhone = addPhone.replace(/[^0-9]/g, '');
-                  const vRes = await fetch('/api/send_sms', {
-                      method: 'POST',
-                      headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ dest: destPhone, msg: finalSms, clientName: addName })
-                  });
-                  if (vRes.ok) {
-                      dispatchLogText = `[AUTO-DISPATCH SUCCESS] ` + finalSms;
-                  } else if (vRes.status === 402) {
-                      dispatchLogText = `[AUTO-DISPATCH BLOCKED] Insufficient SMS Credits.`;
-                      displayNotice("Insufficient SMS Credits.", true);
-                  } else {
-                      dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
-                  }
-              } catch(err) {
-                  dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
-              }
-          }
-
-          const reviewResult = await dispatchImmediateReviewSms({
+          const { logs } = await dispatchOnboardingSms({
             delayHours,
             bData,
             clientData,
             clientName: addName,
-            destPhoneRaw: cleanTargetPhone,
+            cleanPhone: cleanTargetPhone,
             session,
             businessId: session.user.id,
           });
-          if (Number(delayHours) === 0 && reviewResult.reason === 'no_credits') {
-            displayNotice('Insufficient SMS Credits for review message.', true);
+
+          const commLogs = logs.length > 0
+            ? logs
+            : [`Client dynamically queued. Review scheduled globally for ${delayHours} hours from now.`];
+
+          for (const text of commLogs) {
+            await supabase.from('communications').insert([{
+              client_id: clientData.id,
+              business_id: session.user.id,
+              type: 'BULK_CAMPAIGN',
+              text,
+              is_outbound: true,
+            }]);
           }
 
-          await supabase.from('communications').insert([{
-             client_id: clientData.id, business_id: session.user.id, type: 'BULK_CAMPAIGN', text: dispatchLogText, is_outbound: true
-          }]);
+          if (commLogs.some(t => t.includes('Insufficient SMS'))) {
+            displayNotice('Insufficient SMS Credits.', true);
+          }
 
           setAddName(''); setAddPhone(''); setAddEmail(''); setAddDob('');
           setIsAddModalOpen(false);
@@ -245,60 +227,29 @@ const Clients = () => {
             if (!error && clientData) {
                 importedCount++;
                 
-                // Fire Automated SMS Template if exists
-                let dispatchLogText = 'Added via mass queue without SMS.';
-                
-                const welcomeTemplate = bData?.welcome_sms;
-                if (welcomeTemplate && welcomeTemplate.trim() !== '') {
-                    let finalSms = welcomeTemplate
-                        .replace(/{{business_name}}/g, bData.name || 'Our Business')
-                        .replace(/{{client_name}}/g, cName || 'there')
-                        .replace(/{{unsubscribe_link}}/g, window.location.origin + '/opt-out?b=' + session.user.id);
-                    
-                    try {
-                       const destPhone = cPhone.replace(/[^0-9]/g, '');
-                       const vRes = await fetch('/api/send_sms', {
-                          method: 'POST',
-                          headers: { 
-                              'Authorization': `Bearer ${session.access_token}`,
-                              'Content-Type': 'application/json'
-                          },
-                          body: JSON.stringify({
-                              dest: destPhone,
-                              msg: finalSms,
-                              clientName: cName
-                          })
-                       });
-                       
-                       if (vRes.ok) {
-                           dispatchLogText = `[AUTO-DISPATCH SUCCESS] ` + finalSms;
-                       } else if (vRes.status === 402) {
-                           dispatchLogText = `[AUTO-DISPATCH BLOCKED] Insufficient SMS Credits.`;
-                       } else {
-                           dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
-                       }
-                    } catch(err) {
-                       dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
-                    }
-                }
-
-                await dispatchImmediateReviewSms({
+                const { logs } = await dispatchOnboardingSms({
                   delayHours,
                   bData,
                   clientData,
                   clientName: cName,
-                  destPhoneRaw: cleanCsvPhone,
+                  cleanPhone: cleanCsvPhone,
                   session,
                   businessId: bid,
                 });
-                
-                await supabase.from('communications').insert([{
-                   client_id: clientData.id,
-                   business_id: session.user.id,
-                   type: 'BULK_CAMPAIGN',
-                   text: dispatchLogText,
-                   is_outbound: true
-                }]);
+
+                const commLogs = logs.length > 0
+                  ? logs
+                  : ['Added via mass queue without SMS.'];
+
+                for (const text of commLogs) {
+                  await supabase.from('communications').insert([{
+                    client_id: clientData.id,
+                    business_id: session.user.id,
+                    type: 'BULK_CAMPAIGN',
+                    text,
+                    is_outbound: true,
+                  }]);
+                }
             }
         }
         

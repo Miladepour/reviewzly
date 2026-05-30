@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../contexts/ToastContext';
 import { normalizePhone } from '../utils/formatters';
-import { dispatchImmediateReviewSms } from '../utils/immediateReviewSms';
+import { dispatchOnboardingSms } from '../utils/onboardingSms';
 
 const Dashboard = () => {
   const addToast = useToast();
@@ -136,67 +136,33 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // === NEW: Automated SMS Dispatch (Welcome Text Only) ===
-      let dispatchLogText = `Client securely added. Review Invite aggressively queued for ${delayHours} hours from now.`;
-      
-      const welcomeTemplate = bData?.welcome_sms;
-      
-      if (welcomeTemplate && welcomeTemplate.trim() !== '') {
-          // Parse dynamic template variables for the Welcome sequence
-          let finalSms = welcomeTemplate
-              .replace(/{{business_name}}/g, bData?.name || 'Our Business')
-              .replace(/{{client_name}}/g, clientName || 'there');
-              
-          try {
-             const destPhone = clientPhone.replace(/[^0-9]/g, '');
-             const vRes = await fetch('/api/send_sms', {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    dest: destPhone,
-                    msg: finalSms,
-                    clientName: clientName
-                })
-             });
-             
-             if (vRes.ok) {
-                 dispatchLogText = `[AUTO-DISPATCH SUCCESS] ` + finalSms;
-             } else if (vRes.status === 402) {
-                 dispatchLogText = `[AUTO-DISPATCH BLOCKED] Insufficient SMS Credits.`;
-             } else {
-                 dispatchLogText = `[AUTO-DISPATCH BLOCKED] ` + finalSms;
-                 addToast("API failed to deliver the automated payload.", "warning");
-             }
-          } catch(err) {
-             addToast("Dispatch Error targeting API payload: " + err.message, "error");
-             dispatchLogText = `[AUTO-DISPATCH ERROR] Network proxy securely failed.`;
-          }
-      }
-
-      const reviewResult = await dispatchImmediateReviewSms({
+      const { logs } = await dispatchOnboardingSms({
         delayHours,
         bData,
         clientData,
         clientName,
-        destPhoneRaw: cleanTargetPhone,
+        cleanPhone: cleanTargetPhone,
         session,
         businessId: session.user.id,
       });
-      if (Number(delayHours) === 0 && reviewResult.reason === 'no_credits') {
-        addToast('Insufficient SMS Credits for review message.', 'warning');
+
+      const commLogs = logs.length > 0
+        ? logs
+        : [`Client securely added. Review Invite queued for ${delayHours} hours from now.`];
+
+      for (const text of commLogs) {
+        await supabase.from('communications').insert([{
+          client_id: clientData.id,
+          business_id: session.user.id,
+          type: 'BULK_CAMPAIGN',
+          text,
+          is_outbound: true,
+        }]);
       }
 
-      // Automatically log the result to the history timeline
-      await supabase.from('communications').insert([{
-         client_id: clientData.id,
-         business_id: session.user.id,
-         type: 'BULK_CAMPAIGN',
-         text: dispatchLogText,
-         is_outbound: true
-      }]);
+      if (commLogs.some(t => t.includes('Insufficient SMS'))) {
+        addToast('Insufficient SMS Credits.', 'warning');
+      }
 
       setMessage('Client securely vaulted into queue. Drip campaign successfully initialized!');
       setClientName('');
