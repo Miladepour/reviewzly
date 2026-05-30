@@ -117,12 +117,8 @@ const Dashboard = () => {
       // Fetch business settings safely isolated
       const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
 
-      // Mathematically schedule the next action (Review Invite)
-      const delayHours = Number(bData?.delay_hours_for_invite ?? 2);
-      const nextActionDate = new Date();
-      nextActionDate.setHours(nextActionDate.getHours() + delayHours);
-
-      // Physically insert the client into Postgres
+      // Physically insert the client into Postgres. The Invite SMS fires
+      // immediately; the follow-up timer is set after a successful send.
       const { data: clientData, error } = await supabase.from('clients').insert([{
         business_id: session.user.id,
         name: clientName,
@@ -131,13 +127,12 @@ const Dashboard = () => {
         dob: clientDob || null,
         tags: ['Quick Add'],
         drip_step: 1,
-        next_action_time: nextActionDate.toISOString()
+        next_action_time: new Date().toISOString()
       }]).select().single();
 
       if (error) throw error;
 
       const { logs } = await dispatchOnboardingSms({
-        delayHours,
         bData,
         clientData,
         clientName,
@@ -148,7 +143,7 @@ const Dashboard = () => {
 
       const commLogs = logs.length > 0
         ? logs
-        : [`Client securely added. Review Invite queued for ${delayHours} hours from now.`];
+        : ['Client securely added. Invite message sent.'];
 
       for (const text of commLogs) {
         await supabase.from('communications').insert([{

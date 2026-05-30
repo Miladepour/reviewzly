@@ -16,7 +16,7 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Invalid JSON payload structure." }), { status: 400, headers: { 'Content-Type': 'application/json' }});
     }
 
-    const { dest, msg, clientName, scheduledDateTime, shortCode } = payload;
+    const { dest, msg, clientName, shortCode } = payload;
     if (!dest || !msg) {
       return new Response(JSON.stringify({ error: "Destination phone number and message content are strictly required." }), { status: 400, headers: { 'Content-Type': 'application/json' }});
     }
@@ -83,10 +83,6 @@ export async function onRequestPost({ request, env }) {
       to: dest,
       msg: normalizedMsg
     };
-    // Voodoo request param is "schedule" (UNIX ts or e.g. "3 minutes") — NOT scheduledDateTime
-    if (scheduledDateTime && Number(scheduledDateTime) > Math.floor(Date.now() / 1000)) {
-      voodooPayload.schedule = Number(scheduledDateTime);
-    }
 
     const voodooResponse = await fetch("https://api.voodoosms.com/sendsms", {
       method: "POST",
@@ -104,24 +100,22 @@ export async function onRequestPost({ request, env }) {
     }
 
     let voodooMessageId = null;
-    let voodooScheduledAt = null;
+    let voodooStatus = null;
     try {
       const parsed = JSON.parse(voodooBodyText);
       voodooMessageId = parsed?.messages?.[0]?.id || parsed?.reference_id?.[0] || null;
-      voodooScheduledAt = parsed?.scheduledDateTime || null;
+      // Surface whatever per-message status/error Voodoo reports so a future
+      // "Not Delivered" is visible instead of being logged as success.
+      voodooStatus = parsed?.messages?.[0]?.status || parsed?.status || parsed?.error || null;
     } catch {
       /* non-JSON Voodoo payloads still count as ok when HTTP succeeded */
     }
 
-    const wasScheduled = !!voodooPayload.schedule;
     return new Response(JSON.stringify({
       success: true,
-      message: wasScheduled
-        ? "Message scheduled with Voodoo."
-        : "Transmission submitted to Voodoo.",
+      message: "Transmission submitted to Voodoo.",
       voodooMessageId,
-      scheduled: wasScheduled,
-      voodooScheduledAt,
+      voodooStatus,
     }), { status: 200, headers: { 'Content-Type': 'application/json' }});
 
   } catch (error) {

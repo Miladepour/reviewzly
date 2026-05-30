@@ -17,9 +17,8 @@ const Settings = () => {
   const [recoveryEmail, setRecoveryEmail] = useState('');
 
   // Templates State
-  const [welcomeSms, setWelcomeSms] = useState('');
-  const [delayHours, setDelayHours] = useState(2);
-  const [reviewSms, setReviewSms] = useState('');
+  const DEFAULT_INVITE_SMS = 'Hello, Welcome to {{business_name}} Members Club. Please review us here and share your experience with us: {{review_link}}';
+  const [inviteSms, setInviteSms] = useState(DEFAULT_INVITE_SMS);
   const [rewardSms, setRewardSms] = useState('Hi {{client_name}}! Thanks for the 5-stars. Here is our official Google link: {{google_link}}');
   const [followUpSms, setFollowUpSms] = useState('');
   const [followUpDays, setFollowUpDays] = useState(7);
@@ -42,9 +41,7 @@ const Settings = () => {
          setBusinessName(data.name || '');
          setGmbUrl(data.gmb_url || '');
          setRecoveryEmail(data.recovery_email || '');
-         setWelcomeSms(data.welcome_sms || '');
-         setDelayHours(data.delay_hours_for_invite ?? 2);
-         setReviewSms(sanitizeReviewSmsTemplate(data.review_sms || 'Hi {{client_name}}! Thanks for visiting {{business_name}}. Please leave us a review: {{review_link}}'));
+         setInviteSms(sanitizeReviewSmsTemplate(data.invite_sms || data.welcome_sms || data.review_sms || DEFAULT_INVITE_SMS));
          setRewardSms(data.reward_sms || 'Hi {{client_name}}! Thanks for the 5-stars. Here is our official Google link: {{google_link}}');
          setFollowUpSms(sanitizeReviewSmsTemplate(data.follow_up_sms || ''));
          setFollowUpDays(data.follow_up_days || 7);
@@ -69,9 +66,7 @@ const Settings = () => {
          name: businessName,
          gmb_url: gmbUrl,
          recovery_email: recoveryEmail,
-         welcome_sms: welcomeSms,
-         delay_hours_for_invite: delayHours,
-         review_sms: sanitizeReviewSmsTemplate(reviewSms),
+         invite_sms: sanitizeReviewSmsTemplate(inviteSms),
          reward_sms: rewardSms,
          follow_up_sms: sanitizeReviewSmsTemplate(followUpSms),
          follow_up_days: followUpDays,
@@ -227,38 +222,17 @@ const Settings = () => {
                 <span className="tag-light-green" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>{`{{unsubscribe_link}}`}</span>
               </div>
 
-              <div className="flex gap-4">
-                  <div className="flex flex-col gap-2 flex-1 relative">
-                    <label className="text-label-sm" style={{ fontWeight: 700 }}>Instant Welcome Message</label>
-                    <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Sent immediately upon adding client to Database.</p>
-                    <textarea 
-                      rows="3"
-                      style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%', resize: 'vertical' }}
-                      value={welcomeSms}
-                      onChange={(e) => setWelcomeSms(e.target.value)}
-                      placeholder="Leave blank to disable instant text"
-                    />
-                    <span className="text-label-sm" style={{ alignSelf: 'flex-end', opacity: 0.6 }}>{welcomeSms.length} / 160 chars</span>
-                  </div>
-              </div>
-
               <div className="flex flex-col gap-2 mt-4 relative" style={{ padding: '1rem', borderLeft: '4px solid var(--primary)', backgroundColor: 'var(--surface-container-lowest)' }}>
-                <div className="flex justify-between items-center mb-2">
-                    <label className="text-label-sm" style={{ fontWeight: 700 }}>Delayed Review Invite (Step 1)</label>
-                    <div className="flex items-center gap-2">
-                        <span className="text-label-sm">Delay Hours:</span>
-                        <input type="number" min="0" max="72" value={delayHours} onChange={(e) => setDelayHours(Number(e.target.value))} style={{ padding: '0.25rem 0.5rem', width: '60px', borderRadius: '0.25rem', border: '1px solid var(--outline)' }} />
-                    </div>
-                </div>
-                <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Automatically fired X hours after the Welcome Text. Use <code>{'{{review_link}}'}</code> for your Reviewzly rating page — do not paste your Google link here (Google links are sent automatically after a 5-star rating).</p>
-                <textarea 
+                <label className="text-label-sm" style={{ fontWeight: 700 }}>Invite Message</label>
+                <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Sent immediately as a single message when a client is added. Use <code>{'{{review_link}}'}</code> for your Reviewzly rating page — do not paste your Google link here (Google links are sent automatically after a 5-star rating).</p>
+                <textarea
                   rows="4"
                   style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%', resize: 'vertical' }}
-                  value={reviewSms}
-                  onChange={(e) => setReviewSms(e.target.value)}
+                  value={inviteSms}
+                  onChange={(e) => setInviteSms(e.target.value)}
                   required
                 />
-                <span className="text-label-sm" style={{ alignSelf: 'flex-end', opacity: 0.6 }}>{reviewSms.length} / 160 chars</span>
+                <span className="text-label-sm" style={{ alignSelf: 'flex-end', opacity: 0.6 }}>{inviteSms.length} / 160 chars</span>
               </div>
 
               <div className="flex flex-col gap-2 mt-4 relative" style={{ padding: '1rem', borderLeft: '4px solid var(--primary)', backgroundColor: 'var(--surface-container-lowest)' }}>

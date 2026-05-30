@@ -113,10 +113,6 @@ const Clients = () => {
           }
 
           const { data: bData } = await supabase.from('businesses').select('*').eq('id', session.user.id).single();
-          
-          const delayHours = Number(bData?.delay_hours_for_invite ?? 2);
-          const nextActionDate = new Date();
-          nextActionDate.setHours(nextActionDate.getHours() + delayHours);
 
           const { data: clientData, error } = await supabase.from('clients').insert([{
             business_id: session.user.id,
@@ -126,13 +122,12 @@ const Clients = () => {
             dob: addDob || null,
             tags: ['Directory Add'],
             drip_step: 1,
-            next_action_time: nextActionDate.toISOString()
+            next_action_time: new Date().toISOString()
           }]).select().single();
 
           if (error) throw error;
 
           const { logs } = await dispatchOnboardingSms({
-            delayHours,
             bData,
             clientData,
             clientName: addName,
@@ -143,7 +138,7 @@ const Clients = () => {
 
           const commLogs = logs.length > 0
             ? logs
-            : [`Client dynamically queued. Review scheduled globally for ${delayHours} hours from now.`];
+            : ['Client added. Invite message sent.'];
 
           for (const text of commLogs) {
             await supabase.from('communications').insert([{
@@ -191,10 +186,6 @@ const Clients = () => {
         const bid = session.user.id;
         const { data: bData } = await supabase.from('businesses').select('*').eq('id', bid).single();
 
-        const delayHours = Number(bData?.delay_hours_for_invite ?? 2);
-        const baseNextActionDate = new Date();
-        baseNextActionDate.setHours(baseNextActionDate.getHours() + delayHours);
-
         let importedCount = 0;
         let skippedCount = 0;
         
@@ -221,14 +212,13 @@ const Clients = () => {
               phone: cleanCsvPhone,
               tags: ['CSV Import'],
               drip_step: 1,
-              next_action_time: baseNextActionDate.toISOString()
+              next_action_time: new Date().toISOString()
             }]).select().single();
 
             if (!error && clientData) {
                 importedCount++;
-                
+
                 const { logs } = await dispatchOnboardingSms({
-                  delayHours,
                   bData,
                   clientData,
                   clientName: cName,

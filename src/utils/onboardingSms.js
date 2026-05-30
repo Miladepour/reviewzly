@@ -1,8 +1,8 @@
 import { supabase } from '../supabaseClient';
 import { buildReviewLink, buildOptOutLink } from './smsLinks';
 
-/** Voodoo requires ≥120s lead time; use 3 minutes for reliable spacing. */
-const REVIEW_SCHEDULE_SECONDS = 180;
+const DEFAULT_INVITE_SMS =
+  'Hello, Welcome to {{business_name}} Members Club. Please review us here and share your experience with us: {{review_link}}';
 
 function buildSmsFromTemplate(template, { bData, clientName, clientData, businessId }) {
   return template
@@ -12,42 +12,24 @@ function buildSmsFromTemplate(template, { bData, clientName, clientData, busines
     .replace(/{{unsubscribe_link}}/g, buildOptOutLink(businessId));
 }
 
-async function logComm(clientId, businessId, text) {
-  await supabase.from('communications').insert({
-    client_id: clientId,
-    business_id: businessId,
-    type: 'BULK_CAMPAIGN',
-    text,
-    is_outbound: true,
-  });
-}
-
-async function sendSms({ destPhone, msg, clientName, session, scheduledDateTime, shortCode }) {
-  const body = { dest: destPhone, msg, clientName, shortCode };
-  if (scheduledDateTime) body.scheduledDateTime = scheduledDateTime;
-
+async function sendSms({ destPhone, msg, clientName, session, shortCode }) {
   const res = await fetch('/api/send_sms', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ dest: destPhone, msg, clientName, shortCode }),
   });
 
   let detail = '';
-  let scheduled = false;
   try {
     const parsed = await res.json();
     detail = parsed.voodooMessageId ? ` ref:${parsed.voodooMessageId}` : '';
-    if (parsed.voodooScheduledAt) {
-      detail += ` at:${new Date(parsed.voodooScheduledAt * 1000).toISOString()}`;
-    }
-    scheduled = !!parsed.scheduled;
   } catch {
     /* ignore */
   }
-  return { ok: res.ok, status: res.status, detail, scheduled };
+  return { ok: res.ok, status: res.status, detail };
 }
 
 async function advanceToFollowUp(clientId, bData) {
@@ -64,12 +46,13 @@ async function advanceToFollowUp(clientId, bData) {
 }
 
 /**
- * Sends welcome and/or review SMS on client add.
- * When delay is 0: welcome immediately, review scheduled ~2 min later (separate messages,
- * spaced per Voodoo/carrier rules — URLs in SMS often fail when sent back-to-back).
+ * Sends a single immediate "Invite" SMS when a client is added.
+ * One message (welcome + review combined) carrying {{review_link}} to the
+ * Reviewzly rating page. No Voodoo scheduling — matches the known-good
+ * immediate-send behaviour. The 5-star → Google reward flow and the 7-day
+ * follow-up drip are unchanged.
  */
 export async function dispatchOnboardingSms({
-  delayHours,
   bData,
   clientData,
   clientName,
@@ -77,60 +60,33 @@ export async function dispatchOnboardingSms({
   session,
   businessId,
 }) {
-  const delay = Number(delayHours);
   const destPhone = cleanPhone.replace(/[^0-9]/g, '');
   const templateCtx = { bData, clientName, clientData, businessId };
 
-  const welcomeTemplate = bData?.welcome_sms?.trim() || '';
-  const reviewTemplate = bData?.review_sms?.trim() || '';
-  const welcomeMsg = welcomeTemplate ? buildSmsFromTemplate(welcomeTemplate, templateCtx) : '';
-  const reviewMsg = reviewTemplate ? buildSmsFromTemplate(reviewTemplate, templateCtx) : '';
+  const inviteTemplate =
+    bData?.invite_sms?.trim() ||
+    bData?.welcome_sms?.trim() ||
+    bData?.review_sms?.trim() ||
+    DEFAULT_INVITE_SMS;
+  const inviteMsg = buildSmsFromTemplate(inviteTemplate, templateCtx);
 
   const logs = [];
 
-  if (welcomeMsg) {
-    const { ok, status, detail } = await sendSms({
-      destPhone,
-      msg: welcomeMsg,
-      clientName,
-      session,
-      shortCode: clientData.short_code,
-    });
-    if (ok) {
-      logs.push(`[WELCOME SUBMITTED]${detail} ${welcomeMsg}`);
-    } else if (status === 402) {
-      logs.push('[WELCOME BLOCKED] Insufficient SMS credits.');
-    } else {
-      logs.push(`[WELCOME BLOCKED] HTTP ${status}. ${welcomeMsg}`);
-    }
-  }
+  const { ok, status, detail } = await sendSms({
+    destPhone,
+    msg: inviteMsg,
+    clientName,
+    session,
+    shortCode: clientData.short_code,
+  });
 
-  if (delay === 0 && reviewMsg) {
-    const scheduledDateTime = Math.floor(Date.now() / 1000) + REVIEW_SCHEDULE_SECONDS;
-    const { ok, status, detail } = await sendSms({
-      destPhone,
-      msg: reviewMsg,
-      clientName,
-      session,
-      scheduledDateTime,
-      shortCode: clientData.short_code,
-    });
-    if (ok) {
-      await advanceToFollowUp(clientData.id, bData);
-      logs.push(
-        `[REVIEW SCHEDULED ~3 MIN]${detail} ${reviewMsg}`
-      );
-    } else if (status === 402) {
-      logs.push('[REVIEW BLOCKED] Insufficient SMS credits for review message.');
-    } else {
-      logs.push(`[REVIEW BLOCKED] HTTP ${status}. ${reviewMsg}`);
-    }
-  } else if (delay === 0 && !reviewMsg) {
-    await logComm(
-      clientData.id,
-      businessId,
-      '[REVIEW SKIPPED] No review SMS template configured in Settings.'
-    );
+  if (ok) {
+    await advanceToFollowUp(clientData.id, bData);
+    logs.push(`[INVITE SUBMITTED]${detail} ${inviteMsg}`);
+  } else if (status === 402) {
+    logs.push('[INVITE BLOCKED] Insufficient SMS credits.');
+  } else {
+    logs.push(`[INVITE BLOCKED] HTTP ${status}. ${inviteMsg}`);
   }
 
   return { logs };
