@@ -1,16 +1,15 @@
 import { supabase } from '../supabaseClient';
-import { buildReviewLink, buildOptOutLink, normalizeReviewLinksInMessage } from './smsLinks';
+import { buildReviewLink, buildOptOutLink } from './smsLinks';
 
 /** Voodoo requires ≥120s lead time; use 3 minutes for reliable spacing. */
 const REVIEW_SCHEDULE_SECONDS = 180;
 
 function buildSmsFromTemplate(template, { bData, clientName, clientData, businessId }) {
-  const parsed = template
+  return template
     .replace(/{{business_name}}/g, bData.name || 'Our Business')
     .replace(/{{client_name}}/g, clientName || 'there')
     .replace(/{{review_link}}/g, buildReviewLink(clientData.short_code))
     .replace(/{{unsubscribe_link}}/g, buildOptOutLink(businessId));
-  return normalizeReviewLinksInMessage(parsed, clientData.short_code);
 }
 
 async function logComm(clientId, businessId, text) {

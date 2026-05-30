@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
-import { buildReviewLink, normalizeReviewLinksInMessage } from '../utils/smsLinks';
+import { buildReviewLink } from '../utils/smsLinks';
 
 const Campaigns = () => {
   const addToast = useToast();
@@ -121,13 +121,10 @@ const Campaigns = () => {
               setDispatchStatus(`Sending ${i + 1} of ${predictedCost}... (${client.name})`);
 
               // Apply variables to user's custom typed message
-              let finalSms = normalizeReviewLinksInMessage(
-                customMessage
+              let finalSms = customMessage
                   .replace(/{{business_name}}/g, businessData.name || 'Our Team')
                   .replace(/{{client_name}}/g, client.name || 'there')
-                  .replace(/{{review_link}}/g, buildReviewLink(client.short_code)),
-                client.short_code
-              );
+                  .replace(/{{review_link}}/g, buildReviewLink(client.short_code));
 
               let dispatchLogText = '';
               const destPhone = client.phone.replace(/[^0-9]/g, '');

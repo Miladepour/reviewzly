@@ -56,17 +56,18 @@ export async function onRequestPost({ request, env }) {
 
     // Capture the Sender ID returned from the Database Row-Lock successfully
     const rpcData = await rpcResponse.json();
+    // Use RPC sender_id; override only when business has configured sms_sender_id in Sms Hub
     let senderId = rpcData.sender_id || 'Reviewzly';
 
-    // Prefer the business-configured SMS sender mask (Sms Hub → Transmission Identity)
     const bizRes = await fetch(`${supabaseUrl}/rest/v1/businesses?select=sms_sender_id`, {
       method: 'GET',
       headers: { Authorization: authHeader, apikey: supabaseKey },
     });
     if (bizRes.ok) {
       const bizRows = await bizRes.json();
-      if (bizRows?.[0]?.sms_sender_id) {
-        senderId = bizRows[0].sms_sender_id;
+      const configured = bizRows?.[0]?.sms_sender_id?.trim();
+      if (configured && configured.length >= 3) {
+        senderId = configured;
       }
     }
 

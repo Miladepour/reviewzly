@@ -1,6 +1,5 @@
 export const REVIEW_SITE_ORIGIN = 'https://reviewzly.com';
 
-/** Canonical review portal URL — always https + /review/ path. */
 export function buildReviewLink(shortCode) {
   return `${REVIEW_SITE_ORIGIN}/review/${shortCode}`;
 }
@@ -9,9 +8,14 @@ export function buildOptOutLink(businessId) {
   return `${REVIEW_SITE_ORIGIN}/opt-out?b=${businessId}`;
 }
 
+/** Collapse https://https://… mistakes from legacy normalizer runs. */
+export function collapseDuplicateProtocols(message) {
+  return message.replace(/(?:https:\/\/)+/gi, 'https://');
+}
+
 /**
- * Rewrites legacy reviewzly.com/r/… and bare-domain links to https://reviewzly.com/review/…
- * Safe to run on every outbound SMS (client + edge).
+ * Fix legacy reviewzly.com/r/… links only. Never rewrites URLs that already
+ * start with https://reviewzly.com/review/
  */
 export function normalizeReviewLinksInMessage(message, shortCode) {
   if (!message) return message;
@@ -22,16 +26,25 @@ export function normalizeReviewLinksInMessage(message, shortCode) {
     result = result.replace(/\{\{review_link\}\}/gi, buildReviewLink(shortCode));
   }
 
-  result = result
-    .replace(/https?:\/\/reviewzly\.com\/r\/([a-zA-Z0-9]+)/gi, (_, code) => buildReviewLink(code))
-    .replace(/reviewzly\.com\/r\/([a-zA-Z0-9]+)/gi, (_, code) => buildReviewLink(code))
-    .replace(/http:\/\/reviewzly\.com\/review\/([a-zA-Z0-9]+)/gi, (_, code) => buildReviewLink(code))
-    .replace(/reviewzly\.com\/review\/([a-zA-Z0-9]+)/gi, (_, code) => buildReviewLink(code));
+  // Legacy /r/ slug (with or without protocol)
+  result = result.replace(
+    /https?:\/\/reviewzly\.com\/r\/([a-zA-Z0-9]+)/gi,
+    (_, code) => buildReviewLink(code)
+  );
+  result = result.replace(
+    /(^|[^\w/])reviewzly\.com\/r\/([a-zA-Z0-9]+)/gi,
+    (_, pre, code) => `${pre}${buildReviewLink(code)}`
+  );
 
-  return result;
+  // Bare domain /review/ without https — do NOT match inside https://reviewzly.com/…
+  result = result.replace(
+    /(^|[^:/])reviewzly\.com\/review\/([a-zA-Z0-9]+)/gi,
+    (_, pre, code) => `${pre}${buildReviewLink(code)}`
+  );
+
+  return collapseDuplicateProtocols(result);
 }
 
-/** Replace hardcoded review URLs in saved templates with the {{review_link}} token. */
 export function sanitizeReviewSmsTemplate(template) {
   if (!template) return template;
   return template
