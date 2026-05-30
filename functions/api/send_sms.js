@@ -56,18 +56,32 @@ export async function onRequestPost({ request, env }) {
 
     // Capture the Sender ID returned from the Database Row-Lock successfully
     const rpcData = await rpcResponse.json();
-    // Use RPC sender_id; override only when business has configured sms_sender_id in Sms Hub
+    // Use RPC sender_id; override only when THIS business has configured sms_sender_id in Sms Hub
     let senderId = rpcData.sender_id || 'Reviewzly';
 
-    const bizRes = await fetch(`${supabaseUrl}/rest/v1/businesses?select=sms_sender_id`, {
-      method: 'GET',
-      headers: { Authorization: authHeader, apikey: supabaseKey },
-    });
-    if (bizRes.ok) {
-      const bizRows = await bizRes.json();
-      const configured = bizRows?.[0]?.sms_sender_id?.trim();
-      if (configured && configured.length >= 3) {
-        senderId = configured;
+    // Identify the calling user from their JWT (sub === businesses.id). Without
+    // this filter the query returned ALL businesses and used row [0], so one
+    // account's sender ID (e.g. "Stockholm") leaked onto everyone's SMS.
+    let businessId = null;
+    try {
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+      const claims = JSON.parse(atob(token.split('.')[1]));
+      businessId = claims?.sub || null;
+    } catch {
+      /* malformed token — fall back to default sender below */
+    }
+
+    if (businessId) {
+      const bizRes = await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}&select=sms_sender_id`, {
+        method: 'GET',
+        headers: { Authorization: authHeader, apikey: supabaseKey },
+      });
+      if (bizRes.ok) {
+        const bizRows = await bizRes.json();
+        const configured = bizRows?.[0]?.sms_sender_id?.trim();
+        if (configured && configured.length >= 3) {
+          senderId = configured;
+        }
       }
     }
 
