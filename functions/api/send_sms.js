@@ -78,8 +78,9 @@ export async function onRequestPost({ request, env }) {
       to: dest,
       msg: msg
     };
+    // Voodoo request param is "schedule" (UNIX ts or e.g. "3 minutes") — NOT scheduledDateTime
     if (scheduledDateTime && Number(scheduledDateTime) > Math.floor(Date.now() / 1000)) {
-      voodooPayload.scheduledDateTime = Number(scheduledDateTime);
+      voodooPayload.schedule = Number(scheduledDateTime);
     }
 
     const voodooResponse = await fetch("https://api.voodoosms.com/sendsms", {
@@ -98,20 +99,24 @@ export async function onRequestPost({ request, env }) {
     }
 
     let voodooMessageId = null;
+    let voodooScheduledAt = null;
     try {
       const parsed = JSON.parse(voodooBodyText);
       voodooMessageId = parsed?.messages?.[0]?.id || parsed?.reference_id?.[0] || null;
+      voodooScheduledAt = parsed?.scheduledDateTime || null;
     } catch {
       /* non-JSON Voodoo payloads still count as ok when HTTP succeeded */
     }
 
+    const wasScheduled = !!voodooPayload.schedule;
     return new Response(JSON.stringify({
       success: true,
-      message: voodooPayload.scheduledDateTime
+      message: wasScheduled
         ? "Message scheduled with Voodoo."
         : "Transmission submitted to Voodoo.",
       voodooMessageId,
-      scheduled: !!voodooPayload.scheduledDateTime,
+      scheduled: wasScheduled,
+      voodooScheduledAt,
     }), { status: 200, headers: { 'Content-Type': 'application/json' }});
 
   } catch (error) {

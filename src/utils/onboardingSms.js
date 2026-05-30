@@ -1,8 +1,8 @@
 import { supabase } from '../supabaseClient';
 import { buildReviewLink, buildOptOutLink } from './smsLinks';
 
-/** Voodoo rejects schedules inside 120 seconds of now. */
-const REVIEW_SCHEDULE_SECONDS = 120;
+/** Voodoo requires ≥120s lead time; use 3 minutes for reliable spacing. */
+const REVIEW_SCHEDULE_SECONDS = 180;
 
 function buildSmsFromTemplate(template, { bData, clientName, clientData, businessId }) {
   return template
@@ -40,6 +40,9 @@ async function sendSms({ destPhone, msg, clientName, session, scheduledDateTime 
   try {
     const parsed = await res.json();
     detail = parsed.voodooMessageId ? ` ref:${parsed.voodooMessageId}` : '';
+    if (parsed.voodooScheduledAt) {
+      detail += ` at:${new Date(parsed.voodooScheduledAt * 1000).toISOString()}`;
+    }
     scheduled = !!parsed.scheduled;
   } catch {
     /* ignore */
@@ -113,7 +116,7 @@ export async function dispatchOnboardingSms({
     if (ok) {
       await advanceToFollowUp(clientData.id, bData);
       logs.push(
-        `[REVIEW SCHEDULED ~2 MIN]${detail} ${reviewMsg}`
+        `[REVIEW SCHEDULED ~3 MIN]${detail} ${reviewMsg}`
       );
     } else if (status === 402) {
       logs.push('[REVIEW BLOCKED] Insufficient SMS credits for review message.');
