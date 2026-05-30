@@ -1,12 +1,15 @@
 import { supabase } from '../supabaseClient';
+import { buildReviewLink, buildOptOutLink } from './smsLinks';
+
+/** Voodoo rejects schedules inside 120 seconds of now. */
+const REVIEW_SCHEDULE_SECONDS = 120;
 
 function buildSmsFromTemplate(template, { bData, clientName, clientData, businessId }) {
-  const origin = window.location.origin;
   return template
     .replace(/{{business_name}}/g, bData.name || 'Our Business')
     .replace(/{{client_name}}/g, clientName || 'there')
-    .replace(/{{review_link}}/g, `${origin}/r/${clientData.short_code}`)
-    .replace(/{{unsubscribe_link}}/g, `${origin}/opt-out?b=${businessId}`);
+    .replace(/{{review_link}}/g, buildReviewLink(clientData.short_code))
+    .replace(/{{unsubscribe_link}}/g, buildOptOutLink(businessId));
 }
 
 async function logComm(clientId, businessId, text) {
@@ -19,23 +22,29 @@ async function logComm(clientId, businessId, text) {
   });
 }
 
-async function sendSms({ destPhone, msg, clientName, session }) {
+async function sendSms({ destPhone, msg, clientName, session, scheduledDateTime }) {
+  const body = { dest: destPhone, msg, clientName };
+  if (scheduledDateTime) body.scheduledDateTime = scheduledDateTime;
+
   const res = await fetch('/api/send_sms', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ dest: destPhone, msg, clientName }),
+    body: JSON.stringify(body),
   });
+
   let detail = '';
+  let scheduled = false;
   try {
-    const body = await res.json();
-    detail = body.voodooMessageId ? ` (ref: ${body.voodooMessageId})` : '';
+    const parsed = await res.json();
+    detail = parsed.voodooMessageId ? ` ref:${parsed.voodooMessageId}` : '';
+    scheduled = !!parsed.scheduled;
   } catch {
     /* ignore */
   }
-  return { ok: res.ok, status: res.status, detail };
+  return { ok: res.ok, status: res.status, detail, scheduled };
 }
 
 async function advanceToFollowUp(clientId, bData) {
@@ -53,8 +62,8 @@ async function advanceToFollowUp(clientId, bData) {
 
 /**
  * Sends welcome and/or review SMS on client add.
- * When delay is 0 and both templates exist, sends ONE combined SMS so carriers
- * do not drop a second message fired in the same second.
+ * When delay is 0: welcome immediately, review scheduled ~2 min later (separate messages,
+ * spaced per Voodoo/carrier rules — URLs in SMS often fail when sent back-to-back).
  */
 export async function dispatchOnboardingSms({
   delayHours,
@@ -76,26 +85,6 @@ export async function dispatchOnboardingSms({
 
   const logs = [];
 
-  // Zero delay + both templates → single SMS (avoids carrier filtering on back-to-back sends)
-  if (delay === 0 && welcomeMsg && reviewMsg) {
-    const combined = `${welcomeMsg}\n\n${reviewMsg}`;
-    const { ok, status, detail } = await sendSms({
-      destPhone,
-      msg: combined,
-      clientName,
-      session,
-    });
-    if (ok) {
-      await advanceToFollowUp(clientData.id, bData);
-      logs.push(`[AUTO-DISPATCH SUCCESS]${detail} ${combined}`);
-    } else if (status === 402) {
-      logs.push('[ONBOARDING BLOCKED] Insufficient SMS credits.');
-    } else {
-      logs.push(`[ONBOARDING BLOCKED] Combined welcome+review failed (HTTP ${status}).`);
-    }
-    return { logs };
-  }
-
   if (welcomeMsg) {
     const { ok, status, detail } = await sendSms({
       destPhone,
@@ -104,34 +93,38 @@ export async function dispatchOnboardingSms({
       session,
     });
     if (ok) {
-      logs.push(`[AUTO-DISPATCH SUCCESS]${detail} ${welcomeMsg}`);
+      logs.push(`[WELCOME SUBMITTED]${detail} ${welcomeMsg}`);
     } else if (status === 402) {
-      logs.push('[AUTO-DISPATCH BLOCKED] Insufficient SMS Credits.');
+      logs.push('[WELCOME BLOCKED] Insufficient SMS credits.');
     } else {
-      logs.push(`[AUTO-DISPATCH BLOCKED] ${welcomeMsg}`);
+      logs.push(`[WELCOME BLOCKED] HTTP ${status}. ${welcomeMsg}`);
     }
   }
 
   if (delay === 0 && reviewMsg) {
+    const scheduledDateTime = Math.floor(Date.now() / 1000) + REVIEW_SCHEDULE_SECONDS;
     const { ok, status, detail } = await sendSms({
       destPhone,
       msg: reviewMsg,
       clientName,
       session,
+      scheduledDateTime,
     });
     if (ok) {
       await advanceToFollowUp(clientData.id, bData);
-      logs.push(`[AUTO-DISPATCH SUCCESS]${detail} ${reviewMsg}`);
+      logs.push(
+        `[REVIEW SCHEDULED ~2 MIN]${detail} ${reviewMsg}`
+      );
     } else if (status === 402) {
-      logs.push('[REVIEW DISPATCH BLOCKED] Insufficient SMS credits for review message.');
+      logs.push('[REVIEW BLOCKED] Insufficient SMS credits for review message.');
     } else {
-      logs.push(`[REVIEW DISPATCH BLOCKED] API status ${status}.`);
+      logs.push(`[REVIEW BLOCKED] HTTP ${status}. ${reviewMsg}`);
     }
   } else if (delay === 0 && !reviewMsg) {
     await logComm(
       clientData.id,
       businessId,
-      '[REVIEW DISPATCH SKIPPED] No review SMS template configured in Settings.'
+      '[REVIEW SKIPPED] No review SMS template configured in Settings.'
     );
   }
 

@@ -79,8 +79,8 @@ export async function onRequestPost({ request, env }) {
         const finalSms = smsTemplate
             .replace(/{{business_name}}/g, bData.name || 'Our Business')
             .replace(/{{client_name}}/g, client.name || 'there')
-            .replace(/{{review_link}}/g, `https://${new URL(request.url).hostname}/r/${client.short_code}`)
-            .replace(/{{unsubscribe_link}}/g, `https://${new URL(request.url).hostname}/opt-out?b=${bData.id}`);
+            .replace(/{{review_link}}/g, `reviewzly.com/r/${client.short_code}`)
+            .replace(/{{unsubscribe_link}}/g, `reviewzly.com/opt-out?b=${bData.id}`);
 
         const deductRes = await fetch(`${supabaseUrl}/rest/v1/rpc/add_sms_credits`, {
             method: 'POST',
@@ -99,7 +99,7 @@ export async function onRequestPost({ request, env }) {
 
         const cleanDest = client.phone.replace(/[^0-9]/g, '');
         const voodooPayload = {
-             from: bData.voodoo_sender_id || 'Reviewzly',
+             from: bData.sms_sender_id || bData.voodoo_sender_id || 'Reviewzly',
              to: cleanDest,
              msg: finalSms
         };

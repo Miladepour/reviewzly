@@ -14,7 +14,7 @@ export async function onRequestPost({ request, env }) {
       return new Response(JSON.stringify({ error: "Invalid JSON payload structure." }), { status: 400, headers: { 'Content-Type': 'application/json' }});
     }
 
-    const { dest, msg, clientName } = payload;
+    const { dest, msg, clientName, scheduledDateTime } = payload;
     if (!dest || !msg) {
       return new Response(JSON.stringify({ error: "Destination phone number and message content are strictly required." }), { status: 400, headers: { 'Content-Type': 'application/json' }});
     }
@@ -52,7 +52,19 @@ export async function onRequestPost({ request, env }) {
 
     // Capture the Sender ID returned from the Database Row-Lock successfully
     const rpcData = await rpcResponse.json();
-    const senderId = rpcData.sender_id || 'Reviewzly';
+    let senderId = rpcData.sender_id || 'Reviewzly';
+
+    // Prefer the business-configured SMS sender mask (Sms Hub → Transmission Identity)
+    const bizRes = await fetch(`${supabaseUrl}/rest/v1/businesses?select=sms_sender_id`, {
+      method: 'GET',
+      headers: { Authorization: authHeader, apikey: supabaseKey },
+    });
+    if (bizRes.ok) {
+      const bizRows = await bizRes.json();
+      if (bizRows?.[0]?.sms_sender_id) {
+        senderId = bizRows[0].sms_sender_id;
+      }
+    }
 
     // 4. VOODOO SMS NETWORK HANDOFF
     // Now that we 100% confirmed they have credits AND we permanently deducted 1...
@@ -66,6 +78,9 @@ export async function onRequestPost({ request, env }) {
       to: dest,
       msg: msg
     };
+    if (scheduledDateTime && Number(scheduledDateTime) > Math.floor(Date.now() / 1000)) {
+      voodooPayload.scheduledDateTime = Number(scheduledDateTime);
+    }
 
     const voodooResponse = await fetch("https://api.voodoosms.com/sendsms", {
       method: "POST",
@@ -92,8 +107,11 @@ export async function onRequestPost({ request, env }) {
 
     return new Response(JSON.stringify({
       success: true,
-      message: "Transmission completed successfully.",
+      message: voodooPayload.scheduledDateTime
+        ? "Message scheduled with Voodoo."
+        : "Transmission submitted to Voodoo.",
       voodooMessageId,
+      scheduled: !!voodooPayload.scheduledDateTime,
     }), { status: 200, headers: { 'Content-Type': 'application/json' }});
 
   } catch (error) {
