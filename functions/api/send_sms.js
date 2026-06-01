@@ -1,8 +1,31 @@
 import { normalizeReviewLinksInMessage } from './smsLinkUtils.js';
 
-function extractShortUrl(obj) {
-  // Voodoo API returns the short URL in one of several field names
-  return obj?.shortUrl || obj?.short_url || obj?.link || obj?.url || null;
+// Recursively scan any JSON value for the vsms short-URL string. This is robust
+// against unknown field names and nesting in the Voodoo response.
+function findVsmsUrl(value) {
+  if (typeof value === 'string') {
+    const m = value.match(/(?:https?:\/\/)?vsms\.(?:io|co)\/[A-Za-z0-9]+/i);
+    return m ? m[0] : null;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findVsmsUrl(item);
+      if (found) return found;
+    }
+  } else if (value && typeof value === 'object') {
+    for (const key of Object.keys(value)) {
+      const found = findVsmsUrl(value[key]);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Ensure the short URL carries an https:// scheme (carriers/clients need it; the
+// dashboard displays it bare as "vsms.io/Jqkx").
+function ensureHttps(url) {
+  if (!url) return url;
+  return /^https?:\/\//i.test(url) ? url.replace(/^http:\/\//i, 'https://') : `https://${url}`;
 }
 
 async function shortenVoodooLink(longUrl, name, apiKey) {
@@ -14,18 +37,23 @@ async function shortenVoodooLink(longUrl, name, apiKey) {
     });
     const data = await res.json().catch(() => null);
     console.log('Voodoo shorturl create response:', JSON.stringify(data));
-    const created = extractShortUrl(data);
-    if (created) return created;
+    const created = findVsmsUrl(data);
+    if (created) return ensureHttps(created);
 
-    // Name already exists on this account — fetch the existing short URL
+    // Name already exists on this account — fetch the existing short URL by name.
     const listRes = await fetch('https://api.voodoosms.com/shorturl', {
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
     const list = await listRes.json().catch(() => null);
-    console.log('Voodoo shorturl list response:', JSON.stringify(list)?.slice(0, 500));
-    const existing = list?.data?.find(u => u.name === name);
-    const found = extractShortUrl(existing);
-    if (found) return found;
+    console.log('Voodoo shorturl list response:', JSON.stringify(list)?.slice(0, 800));
+    // Find the entry whose name (or long URL) matches, then pull the vsms URL
+    // from that specific entry only — never blindly grab another client's link.
+    const entries = Array.isArray(list) ? list : (list?.data || list?.shorturls || []);
+    const entry = Array.isArray(entries)
+      ? entries.find(u => u?.name === name || findVsmsUrl(u) && JSON.stringify(u).includes(longUrl))
+      : null;
+    const found = findVsmsUrl(entry);
+    if (found) return ensureHttps(found);
   } catch (err) {
     console.error('shortenVoodooLink error:', err?.message);
   }
