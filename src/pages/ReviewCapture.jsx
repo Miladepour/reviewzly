@@ -140,9 +140,11 @@ const ReviewCapture = () => {
       <div className="card" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem 2rem', textAlign: 'center', boxShadow: 'var(--shadow-md)', borderRadius: '1.5rem', backgroundColor: 'white' }}>
 
         <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: businessInfo?.brand_color || 'var(--surface-container-low)', margin: '0 auto 2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          <span style={{ fontSize: '2rem', color: 'white', fontWeight: 700 }}>
-            {businessInfo?.name ? businessInfo.name.charAt(0).toUpperCase() : '★'}
-          </span>
+          {businessInfo?.logo_url
+            ? <img src={businessInfo.logo_url} alt={businessInfo?.name || 'Logo'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <span style={{ fontSize: '2rem', color: 'white', fontWeight: 700 }}>
+                {businessInfo?.name ? businessInfo.name.charAt(0).toUpperCase() : '★'}
+              </span>}
         </div>
 
         {/* STEP 0: INITIAL RATING PAGE */}
@@ -249,7 +251,25 @@ const ReviewCapture = () => {
 
       </div>
 
-      <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+      {/* Business contact footer */}
+      {(businessInfo?.business_website || businessInfo?.business_phone || businessInfo?.business_address) && (
+        <div style={{ marginTop: '1.5rem', textAlign: 'center', maxWidth: '420px', width: '100%' }}>
+          <p style={{ fontWeight: 700, color: '#102A14', marginBottom: '0.35rem' }}>{businessInfo?.name}</p>
+          {businessInfo?.business_address && (
+            <p className="text-label-sm" style={{ color: 'var(--on-surface-variant)', marginBottom: '0.2rem' }}>{businessInfo.business_address}</p>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.85rem' }}>
+            {businessInfo?.business_phone && (
+              <a href={`tel:${businessInfo.business_phone}`} style={{ color: businessInfo?.brand_color || 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>📞 {businessInfo.business_phone}</a>
+            )}
+            {businessInfo?.business_website && (
+              <a href={businessInfo.business_website} target="_blank" rel="noreferrer" style={{ color: businessInfo?.brand_color || 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>🌐 Website</a>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
         {clientInfo && clientInfo.id !== 'dummy-demo' && (
           <button
             onClick={async () => {

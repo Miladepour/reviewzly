@@ -27,6 +27,7 @@ const Dashboard = () => {
   
   // SMS API State
   const [smsBalance, setSmsBalance] = useState('Syncing...');
+  const [currentPlan, setCurrentPlan] = useState('Free Tier');
 
   // Google Cache State
   const [googleStats, setGoogleStats] = useState({ rating: 0.0, total_reviews: 0 });
@@ -52,6 +53,7 @@ const Dashboard = () => {
       
       if (businessData) {
           setSmsBalance(businessData.sms_credits || 0);
+          setCurrentPlan(businessData.active_plan || 'Free Tier');
 
           // Stale-While-Revalidate Google Caching Algorithm
           setGoogleStats({ rating: businessData.google_rating || 0.0, total_reviews: businessData.google_reviews_count || 0 });
@@ -203,7 +205,7 @@ const Dashboard = () => {
         </div>
         <div className="flex gap-2">
           <div className="tag-light-green" style={{ fontSize: '0.75rem', padding: '0.5rem 1rem' }}>
-             Voodoo SMS Active
+             Server Connected
           </div>
         </div>
       </div>
@@ -237,22 +239,33 @@ const Dashboard = () => {
             <div className="flex flex-col justify-between">
               <p className="val-sub" style={{ color: '#2e7d32' }}>Invites Remaining</p>
               <h2 className="text-display-xl" style={{ fontSize: '3rem', color: '#1b5e20', lineHeight: 1 }}>{smsBalance}</h2>
+              <p className="text-label-sm" style={{ marginTop: '0.5rem', color: 'var(--on-surface-variant)' }}>
+                Current Plan: <strong style={{ color: '#1b5e20' }}>{currentPlan}</strong>
+              </p>
             </div>
-            
+
             <div className="flex flex-col gap-2 items-end justify-center">
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#c8e6c9', color: '#1b5e20', padding: '0.35rem 0', borderRadius: '0.5rem', textAlign: 'center', width: '100px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#c8e6c9', color: '#1b5e20', padding: '0.35rem 0', borderRadius: '0.5rem', textAlign: 'center', width: '110px' }}>
                  {smsBalance === 'Syncing...' ? 'Pending' : 'Live System'}
               </span>
-              
+
               {smsBalance !== 'Syncing...' && smsBalance !== 'No Data' && Number(smsBalance) < 50 && (
-                 <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#dc2626', color: 'white', padding: '0.35rem 0', borderRadius: '0.5rem', textAlign: 'center', width: '100px' }}>
+                 <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#dc2626', color: 'white', padding: '0.35rem 0', borderRadius: '0.5rem', textAlign: 'center', width: '110px' }}>
                    Low Invites
                  </span>
               )}
-              
-              <button 
-                 type="button" 
-                 style={{ backgroundColor: '#2e7d32', color: 'white', border: 'none', padding: '0.35rem 0', fontSize: '0.75rem', fontWeight: 700, borderRadius: '0.5rem', cursor: 'pointer', textAlign: 'center', width: '100px' }} 
+
+              <button
+                 type="button"
+                 style={{ backgroundColor: '#2e7d32', color: 'white', border: 'none', padding: '0.4rem 0', fontSize: '0.75rem', fontWeight: 700, borderRadius: '0.5rem', cursor: 'pointer', textAlign: 'center', width: '110px' }}
+                 onClick={() => { navigate('/dashboard/plan'); }}
+              >
+                 {currentPlan === 'Free Tier' ? 'Choose Plan' : 'Manage Plan'}
+              </button>
+
+              <button
+                 type="button"
+                 style={{ backgroundColor: 'transparent', color: '#2e7d32', border: '1px solid #2e7d32', padding: '0.4rem 0', fontSize: '0.75rem', fontWeight: 700, borderRadius: '0.5rem', cursor: 'pointer', textAlign: 'center', width: '110px' }}
                  onClick={() => { navigate('/dashboard/plan'); }}
               >
                  Top-Up Invites

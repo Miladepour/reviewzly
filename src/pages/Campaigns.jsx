@@ -196,7 +196,7 @@ const Campaigns = () => {
         <div>
           <h1 className="text-display-xl mb-1">Marketing Campaigns</h1>
           <p className="text-body" style={{ fontSize: '1.05rem', marginTop: '0.25rem' }}>
-            Drive massive retention by broadcasting custom reports directly via Voodoo Edge.
+            Drive massive retention by broadcasting custom reports directly via SMS.
           </p>
         </div>
         {!isLoading && (
@@ -240,7 +240,7 @@ const Campaigns = () => {
                  </div>
               )}) : (
                  <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>
-                     No broadcast campaigns have been tracked. Click the button above to begin leveraging Voodoo networking!
+                     No broadcast campaigns have been tracked. Click the button above to begin leveraging SMS networking!
                  </div>
              )}
          </div>

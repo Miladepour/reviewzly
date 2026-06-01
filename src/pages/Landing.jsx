@@ -23,7 +23,7 @@ const Landing = () => {
             Capture 5-Star Reviews.<br/><span>Diffuse the Rest.</span>
           </h1>
           <p className="text-body mb-8" style={{ fontSize: '1.25rem', maxWidth: '600px', margin: '0 auto 2.5rem' }}>
-            Reviewzly automates your feedback collection via Voodoo SMS. We instantly direct 5-star ratings to Google, and gently catch 1-4 star complaints internally for you to resolve.
+            Reviewzly automates your feedback collection via SMS. We instantly direct 5-star ratings to Google, and gently catch 1-4 star complaints internally for you to resolve.
           </p>
           
           <div className="flex justify-center gap-4 flex-wrap">
@@ -84,7 +84,7 @@ const Landing = () => {
             <div style={{ width: '48px', height: '48px', backgroundColor: '#e2f0fe', color: '#1b64b1', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
             </div>
-            <h3 className="text-title-lg mb-2">Voodoo SMS Powered</h3>
+            <h3 className="text-title-lg mb-2">SMS Powered</h3>
             <p className="text-body" style={{ fontSize: '0.95rem' }}>Achieve massive open rates by dispatching review requests directly to customer phones via our seamless API integration.</p>
           </div>
 

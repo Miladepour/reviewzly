@@ -16,6 +16,13 @@ const Settings = () => {
   const [gmbUrl, setGmbUrl] = useState('');
   const [recoveryEmail, setRecoveryEmail] = useState('');
 
+  // Public Branding State
+  const [logoUrl, setLogoUrl] = useState('');
+  const [businessWebsite, setBusinessWebsite] = useState('');
+  const [businessPhone, setBusinessPhone] = useState('');
+  const [businessAddress, setBusinessAddress] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
   // Templates State
   const DEFAULT_INVITE_SMS = 'Hello, Welcome to {{business_name}} Members Club. Please review us here and share your experience with us: {{review_link}}';
   const [inviteSms, setInviteSms] = useState(DEFAULT_INVITE_SMS);
@@ -47,6 +54,10 @@ const Settings = () => {
          setFollowUpDays(data.follow_up_days || 7);
          setBirthdaySms(data.birthday_sms || '');
          setBrandColor(data.brand_color || '#00a84d');
+         setLogoUrl(data.logo_url || '');
+         setBusinessWebsite(data.business_website || '');
+         setBusinessPhone(data.business_phone || '');
+         setBusinessAddress(data.business_address || '');
        }
     }
     fetchBusiness();
@@ -54,6 +65,37 @@ const Settings = () => {
 
   // Branding State
   const [brandColor, setBrandColor] = useState('#00a84d');
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      addToast("Please choose an image file (PNG or JPG).", "error");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      addToast("Logo must be under 2MB.", "error");
+      return;
+    }
+    setIsUploadingLogo(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated.");
+      const ext = file.name.split('.').pop().toLowerCase();
+      // Store under <userId>/logo.<ext> so the storage policy (folder = uid) allows it.
+      const path = `${session.user.id}/logo.${ext}`;
+      const { error: upErr } = await supabase.storage.from('logos').upload(path, file, { upsert: true, cacheControl: '3600' });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('logos').getPublicUrl(path);
+      // Cache-bust so the new image shows immediately
+      setLogoUrl(`${pub.publicUrl}?v=${Date.now()}`);
+      addToast("Logo uploaded. Click Save Configuration to apply.", "success");
+    } catch (err) {
+      addToast(err.message || "Logo upload failed.", "error");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -71,7 +113,11 @@ const Settings = () => {
          follow_up_sms: sanitizeReviewSmsTemplate(followUpSms),
          follow_up_days: followUpDays,
          birthday_sms: birthdaySms,
-         brand_color: brandColor
+         brand_color: brandColor,
+         logo_url: logoUrl,
+         business_website: businessWebsite,
+         business_phone: businessPhone,
+         business_address: businessAddress
       };
       
       // CACHE INVALIDATION: If they change their agency name, wipe the Google Lock so it fetches instantly
@@ -211,7 +257,7 @@ const Settings = () => {
             <div className="flex flex-col gap-6 max-w-lg mx-auto" style={{ maxWidth: '700px' }}>
               <div>
                 <h2 className="text-title-lg mb-2">Automated SMS Configuration</h2>
-                <p className="text-body mb-6">Design the text messaging payloads sent via Voodoo. Use exact bracket syntax for dynamic tokens.</p>
+                <p className="text-body mb-6">Design the text messaging payloads sent via SMS. Use exact bracket syntax for dynamic tokens.</p>
               </div>
 
               <div className="flex gap-2 flex-wrap mb-4">
@@ -292,15 +338,39 @@ const Settings = () => {
 
               <div className="flex flex-col gap-2">
                  <label className="text-label-sm" style={{ fontWeight: 700 }}>Brand Logo</label>
+                 <p className="text-body mb-1" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Shown at the top of your public review page.</p>
                  <div className="flex items-center gap-6 mt-2" style={{ padding: '1.5rem', border: '1px dashed var(--outline-variant)', borderRadius: '1rem', backgroundColor: 'var(--surface-container-lowest)' }}>
-                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--surface-container-low)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img src="/logo.png" alt="Current Logo" style={{ width: '100%', height: 'auto', objectFit: 'contain' }} />
+                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--surface-container-low)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                      {logoUrl
+                        ? <img src={logoUrl} alt="Current Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--on-surface-variant)' }}>{(businessName || '?').charAt(0).toUpperCase()}</span>}
                     </div>
                     <div>
-                      <button type="button" className="btn-primary" style={{ backgroundColor: 'white', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)' }}>Upload New Image</button>
-                      <p className="text-label-sm mt-2" style={{ opacity: 0.6 }}>PNG or JPG. Minimum 200x200px.</p>
+                      <label className="btn-primary" style={{ backgroundColor: 'white', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)', cursor: isUploadingLogo ? 'wait' : 'pointer', display: 'inline-block' }}>
+                        {isUploadingLogo ? 'Uploading...' : 'Upload New Image'}
+                        <input type="file" accept="image/png,image/jpeg" onChange={handleLogoUpload} disabled={isUploadingLogo} style={{ display: 'none' }} />
+                      </label>
+                      <p className="text-label-sm mt-2" style={{ opacity: 0.6 }}>PNG or JPG, under 2MB. Square works best.</p>
                     </div>
                  </div>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-4">
+                <label className="text-label-sm" style={{ fontWeight: 700 }}>Website</label>
+                <input type="url" value={businessWebsite} onChange={(e) => setBusinessWebsite(e.target.value)} placeholder="https://yourbusiness.com"
+                  style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%' }} />
+              </div>
+
+              <div className="flex flex-col gap-2 mt-4">
+                <label className="text-label-sm" style={{ fontWeight: 700 }}>Public Phone Number</label>
+                <input type="tel" value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)} placeholder="+44 7700 900000"
+                  style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%' }} />
+              </div>
+
+              <div className="flex flex-col gap-2 mt-4">
+                <label className="text-label-sm" style={{ fontWeight: 700 }}>Address</label>
+                <textarea rows="2" value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)} placeholder="123 High Street, London, UK"
+                  style={{ padding: '0.85rem', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', outline: 'none', width: '100%', resize: 'vertical' }} />
               </div>
 
               <div className="flex flex-col gap-2 mt-4">

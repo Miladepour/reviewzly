@@ -46,10 +46,10 @@ const FAQ_DATA = {
       q: 'What is an Instant Broadcast mass blast?', 
       a: 'An Instant Broadcast immediately queries your target audience (e.g. "All Un-reviewed Clients") and sends the SMS right now. Be careful: this will instantly consume one invite for every client reached.'
     },
-    { 
-      id: 'c3', 
-      q: 'Where do I find my Voodoo API Key?', 
-      a: 'Log into your account at voodoosms.com. Navigate to Developers > API Keys. Generate a new key and paste it perfectly inside the "Integrations" tab here in Reviewzly.' 
+    {
+      id: 'c3',
+      q: 'How do invites work?',
+      a: 'Each plan includes a monthly allowance of invites. One invite is used each time an SMS review request is sent to a client. Unused invites roll over. If you run low, you can buy a one-time top-up at £1 per invite from the Manage Plan page.'
     },
     { 
       id: 'c4', 
