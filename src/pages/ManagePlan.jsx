@@ -99,8 +99,11 @@ const ManagePlan = () => {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${session.access_token}` }
           });
-          
-          if (!res.ok) throw new Error("Stripe failed to acknowledge the cancellation.");
+
+          if (!res.ok) {
+              const body = await res.json().catch(() => ({}));
+              throw new Error(body.details || body.error || `Cancellation failed (HTTP ${res.status}).`);
+          }
           
           setActivePlan('Cancelled');
           setShowCancelModal(false);

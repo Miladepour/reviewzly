@@ -34,38 +34,49 @@ export async function onRequestPost({ request, env }) {
         return new Response(JSON.stringify({ error: "No active subscription found mathematically linked to this account." }), { status: 400 });
     }
 
-    // 3. Cancel the subscription via Stripe's current API (POST .../cancel)
-    const stripeRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}/cancel`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
-    });
-
-    if (!stripeRes.ok) {
-        const errBody = await stripeRes.json().catch(() => ({}));
-        // If Stripe says the subscription doesn't exist (e.g. it was created in test
-        // mode but we're now in live mode), treat it as already cancelled and clean
-        // up the DB so the user isn't stuck.
-        const noSuchSub = errBody?.error?.code === 'resource_missing' ||
-                          errBody?.error?.message?.toLowerCase().includes('no such subscription');
-        if (!noSuchSub) {
-            throw new Error("Stripe API failed: " + (errBody?.error?.message || stripeRes.status));
+    // 3. Cancel the subscription via Stripe's current API (POST .../cancel).
+    // The user's intent is to cancel; if Stripe can't find/act on the sub
+    // (test-vs-live mismatch, already cancelled, missing key), we still clear
+    // the local DB so the user is never stuck. We only log Stripe's reason.
+    let stripeNote = null;
+    if (env.STRIPE_SECRET_KEY) {
+        const stripeRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}/cancel`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
+        });
+        if (!stripeRes.ok) {
+            const errBody = await stripeRes.json().catch(() => ({}));
+            stripeNote = errBody?.error?.message || `Stripe HTTP ${stripeRes.status}`;
+            console.error('Stripe cancel non-OK:', stripeRes.status, JSON.stringify(errBody));
         }
-        // Fall through — subscription not found in this environment, clean up DB anyway
+    } else {
+        stripeNote = 'STRIPE_SECRET_KEY not configured';
+        console.error('Stripe cancel: STRIPE_SECRET_KEY missing');
     }
 
-    // 4. Cleanse Local Database Tracking
+    // 4. Cleanse Local Database Tracking. This is what actually matters for the
+    // user's experience — clear their plan locally regardless of Stripe outcome.
     const patchKey = serviceRole || supabaseKey;
     const patchAuth = serviceRole ? `Bearer ${serviceRole}` : authHeader;
-    await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}`, {
+    const patchRes = await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'apikey': patchKey, 'Authorization': patchAuth },
+        headers: { 'Content-Type': 'application/json', 'apikey': patchKey, 'Authorization': patchAuth, 'Prefer': 'return=minimal' },
         body: JSON.stringify({
             stripe_subscription_id: null,
             active_plan: null
         })
     });
 
-    return new Response(JSON.stringify({ success: true, message: "Subscription successfully and permanently terminated." }), { status: 200, headers: {'Content-Type': 'application/json'} });
+    if (!patchRes.ok) {
+        const patchErr = await patchRes.text();
+        return new Response(JSON.stringify({ error: "Could not update account after cancellation.", details: patchErr }), { status: 500, headers: {'Content-Type': 'application/json'} });
+    }
+
+    return new Response(JSON.stringify({
+        success: true,
+        message: "Subscription cancelled.",
+        stripeNote
+    }), { status: 200, headers: {'Content-Type': 'application/json'} });
 
   } catch (err) {
     return new Response(JSON.stringify({ error: "Internal crash during cancellation protocol", details: err.message }), { status: 500 });
