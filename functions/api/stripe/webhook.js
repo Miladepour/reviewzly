@@ -76,12 +76,17 @@ export async function onRequestPost({ request, env }) {
     // Now safely process the authentically validated workflow
     if (verifiedEvent.type === 'invoice.payment_succeeded') {
         const invoice = verifiedEvent.data.object;
-        
+
         // Unify Subscription ID Extraction (handles both modern 2026 Stripe API & legacy root structures)
         const subId = invoice.subscription || invoice.parent?.subscription_details?.subscription;
-        
-        // Skip invoices not bound to a subscription (e.g. one-offs)
-        if (subId) {
+
+        // The FIRST invoice of a subscription (billing_reason 'subscription_create')
+        // is already fulfilled by checkout.session.completed above — skip it here to
+        // avoid double-granting. This block handles RENEWALS (subscription_cycle).
+        const isInitialInvoice = invoice.billing_reason === 'subscription_create';
+
+        // Skip invoices not bound to a subscription (e.g. one-offs) and the initial one
+        if (subId && !isInitialInvoice) {
             // Query Stripe for the parent subscription to retrieve our secure metadata variables
             const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subId}`, {
                 headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
@@ -160,55 +165,61 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
-    // One-time custom top-up: grant invites once on a completed payment session.
+    // PRIMARY FULFILMENT: checkout.session.completed fires for EVERY completed
+    // checkout — paid, £0 (100%-off coupon), subscription or one-time — and carries
+    // our session metadata. Grant invites here for both modes so a fully-discounted
+    // subscription (which may not emit invoice.payment_succeeded) still works.
     if (verifiedEvent.type === 'checkout.session.completed') {
         const session = verifiedEvent.data.object;
-        // Only handle one-time payments here; subscriptions are handled above via invoice.payment_succeeded.
-        if (session.mode === 'payment') {
-            const businessId = session.metadata?.business_id;
-            const creditAmount = parseInt(session.metadata?.credit_amount || '0', 10);
+        const businessId = session.metadata?.business_id;
+        const creditAmount = parseInt(session.metadata?.credit_amount || '0', 10);
+        const planTier = session.metadata?.plan_tier || null;
+        const isSubscription = session.mode === 'subscription';
 
-            if (businessId && creditAmount > 0) {
-                const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
-                const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
-                if (!supabaseUrl || !serviceRole) {
-                    throw new Error("Cannot append invites: SUPABASE_SERVICE_ROLE_KEY missing on Edge");
-                }
+        if (businessId && creditAmount > 0) {
+            const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
+            const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
+            if (!supabaseUrl || !serviceRole) {
+                throw new Error("Cannot append invites: SUPABASE_SERVICE_ROLE_KEY missing on Edge");
+            }
 
-                const rpcRes = await fetch(`${supabaseUrl}/rest/v1/rpc/add_sms_credits`, {
+            const rpcRes = await fetch(`${supabaseUrl}/rest/v1/rpc/add_sms_credits`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}` },
+                body: JSON.stringify({ p_biz_id: businessId, p_amount: creditAmount })
+            });
+            if (!rpcRes.ok) {
+                const rpcErr = await rpcRes.text();
+                throw new Error("Supabase RPC failed to add invites: " + rpcErr);
+            }
+
+            // For subscriptions, bind the plan + subscription id. For one-time
+            // top-ups, only stamp the customer id (plan unchanged).
+            const patchBody = { stripe_customer_id: session.customer };
+            if (isSubscription) {
+                patchBody.active_plan = planTier || 'Active Tier';
+                if (session.subscription) patchBody.stripe_subscription_id = session.subscription;
+            }
+            await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}`, 'Prefer': 'return=minimal' },
+                body: JSON.stringify(patchBody)
+            });
+
+            if (env.RESEND_API_KEY && session.customer_details?.email) {
+                await fetch('https://api.resend.com/emails', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}` },
-                    body: JSON.stringify({ p_biz_id: businessId, p_amount: creditAmount })
+                    headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        from: 'Reviewzly Billing <billing@reviewzly.com>',
+                        to: [session.customer_details.email],
+                        subject: isSubscription ? `Reviewzly - ${planTier || 'Subscription'}` : `Reviewzly Top-Up - ${creditAmount} invites`,
+                        html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                                 <h2 style="color: #2e7d32;">${isSubscription ? 'Subscription Active' : 'Top-Up Received'}</h2>
+                                 <p>Your payment of <b>£${(session.amount_total / 100).toFixed(2)}</b> has been processed and <b>${creditAmount} invites</b> have been added to your account.</p>
+                               </div>`
+                    })
                 });
-                if (!rpcRes.ok) {
-                    const rpcErr = await rpcRes.text();
-                    throw new Error("Supabase RPC failed to add top-up invites: " + rpcErr);
-                }
-
-                // Stamp the customer id (do not touch active_plan — top-ups don't change the plan).
-                if (session.customer) {
-                    await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}`, 'Prefer': 'return=minimal' },
-                        body: JSON.stringify({ stripe_customer_id: session.customer })
-                    });
-                }
-
-                if (env.RESEND_API_KEY && session.customer_details?.email) {
-                    await fetch('https://api.resend.com/emails', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            from: 'Reviewzly Billing <billing@reviewzly.com>',
-                            to: [session.customer_details.email],
-                            subject: `Reviewzly Top-Up - ${creditAmount} invites`,
-                            html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-                                     <h2 style="color: #2e7d32;">Top-Up Received</h2>
-                                     <p>Your payment of <b>£${(session.amount_total / 100).toFixed(2)}</b> has been processed and <b>${creditAmount} invites</b> have been added to your account.</p>
-                                   </div>`
-                        })
-                    });
-                }
             }
         }
     }
