@@ -83,14 +83,14 @@ export async function onRequestPost({ request, env }) {
 
     const normalizedMsg = normalizeReviewLinksInMessage(msg, shortCode || null);
 
-    // Shorten the reviewzly.com review link via Voodoo's vsms.co shortener so it
-    // passes UK carrier filters. Falls back to the original URL if the API fails.
+    // Shorten the review link early (shortCode is known here).
+    // Unsubscribe link shortening happens after businessId is decoded from JWT below.
     let finalMsg = normalizedMsg;
     if (shortCode && env.VOODOO_API_KEY) {
-      const longUrl = `https://reviewzly.com/review/${shortCode}`;
-      if (finalMsg.includes(longUrl)) {
-        const vsmsUrl = await shortenVoodooLink(longUrl, shortCode, env.VOODOO_API_KEY);
-        if (vsmsUrl) finalMsg = finalMsg.replace(longUrl, vsmsUrl);
+      const reviewUrl = `https://reviewzly.com/review/${shortCode}`;
+      if (finalMsg.includes(reviewUrl)) {
+        const vsmsUrl = await shortenVoodooLink(reviewUrl, shortCode, env.VOODOO_API_KEY);
+        if (vsmsUrl) finalMsg = finalMsg.replace(reviewUrl, vsmsUrl);
       }
     }
 
@@ -153,6 +153,16 @@ export async function onRequestPost({ request, env }) {
         if (configured && configured.length >= 3) {
           senderId = configured;
         }
+      }
+    }
+
+    // Shorten unsubscribe link now that businessId is known.
+    if (businessId && env.VOODOO_API_KEY) {
+      const optUrl = `https://reviewzly.com/opt-out?b=${businessId}`;
+      if (finalMsg.includes(optUrl)) {
+        const optName = `opt-${businessId.replace(/-/g, '').substring(0, 20)}`;
+        const vsmsOpt = await shortenVoodooLink(optUrl, optName, env.VOODOO_API_KEY);
+        if (vsmsOpt) finalMsg = finalMsg.replace(optUrl, vsmsOpt);
       }
     }
 

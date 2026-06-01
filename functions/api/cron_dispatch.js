@@ -125,12 +125,22 @@ export async function onRequestPost({ request, env }) {
             client.short_code
         );
 
-        // Shorten the reviewzly.com link so it passes UK carrier filters
-        if (client.short_code && env.VOODOO_API_KEY) {
-            const longUrl = `https://reviewzly.com/review/${client.short_code}`;
-            if (builtSms.includes(longUrl)) {
-                const vsmsUrl = await shortenVoodooLink(longUrl, client.short_code, env.VOODOO_API_KEY);
-                if (vsmsUrl) builtSms = builtSms.replace(longUrl, vsmsUrl);
+        // Shorten reviewzly.com links so they pass UK carrier filters
+        if (env.VOODOO_API_KEY) {
+            // Review link
+            if (client.short_code) {
+                const reviewUrl = `https://reviewzly.com/review/${client.short_code}`;
+                if (builtSms.includes(reviewUrl)) {
+                    const vsmsUrl = await shortenVoodooLink(reviewUrl, client.short_code, env.VOODOO_API_KEY);
+                    if (vsmsUrl) builtSms = builtSms.replace(reviewUrl, vsmsUrl);
+                }
+            }
+            // Unsubscribe link
+            const optUrl = `https://reviewzly.com/opt-out?b=${bData.id}`;
+            if (builtSms.includes(optUrl)) {
+                const optName = `opt-${bData.id.replace(/-/g, '').substring(0, 20)}`;
+                const vsmsOpt = await shortenVoodooLink(optUrl, optName, env.VOODOO_API_KEY);
+                if (vsmsOpt) builtSms = builtSms.replace(optUrl, vsmsOpt);
             }
         }
         const finalSms = builtSms;

@@ -1,6 +1,39 @@
 // Lightweight Edge memory cache against bot loops per node
 const ipBlocklist = new Map();
 
+function findVsmsUrl(value) {
+  if (typeof value === 'string') {
+    const m = value.match(/(?:https?:\/\/)?vsms\.(?:io|co)\/[A-Za-z0-9]+/i);
+    return m ? m[0] : null;
+  }
+  if (Array.isArray(value)) { for (const item of value) { const f = findVsmsUrl(item); if (f) return f; } }
+  else if (value && typeof value === 'object') { for (const k of Object.keys(value)) { const f = findVsmsUrl(value[k]); if (f) return f; } }
+  return null;
+}
+function ensureHttps(url) {
+  if (!url) return url;
+  return /^https?:\/\//i.test(url) ? url.replace(/^http:\/\//i, 'https://') : `https://${url}`;
+}
+async function shortenVoodooLink(longUrl, name, apiKey) {
+  try {
+    const res = await fetch('https://api.voodoosms.com/shorturl', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ name, url: longUrl, method: 'simple' }),
+    });
+    const data = await res.json().catch(() => null);
+    const created = findVsmsUrl(data);
+    if (created) return ensureHttps(created);
+    const listRes = await fetch('https://api.voodoosms.com/shorturl', { headers: { 'Authorization': `Bearer ${apiKey}` } });
+    const list = await listRes.json().catch(() => null);
+    const entries = Array.isArray(list) ? list : (list?.data || []);
+    const entry = Array.isArray(entries) ? entries.find(u => u?.name === name || JSON.stringify(u).includes(longUrl)) : null;
+    const found = findVsmsUrl(entry);
+    if (found) return ensureHttps(found);
+  } catch { /* fall through */ }
+  return null;
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     // 0. IP Rate Limiting Firewall
@@ -66,10 +99,11 @@ export async function onRequestPost({ request, env }) {
     const businessId = rpcData.business_id || '';
     const customTemplate = rpcData.reward_sms || 'Hi {{client_name}}! Thanks so much for the 5 stars! As promised, here is the official link to post it on Google. It takes 10 seconds and means the world to us! {{google_link}}';
 
-    const finalSms = customTemplate
+    const optUrl = `https://reviewzly.com/opt-out?b=${businessId}`;
+    let finalSms = customTemplate
        .replace(/{{client_name}}/g, clientName || 'there')
        .replace(/{{google_link}}/g, gmbUrl || 'https://google.com')
-       .replace(/{{unsubscribe_link}}/g, `https://reviewzly.com/opt-out?b=${businessId}`);
+       .replace(/{{unsubscribe_link}}/g, optUrl);
 
     // Resolve the correct sender ID. Public endpoint has no user JWT, and the
     // anon key cannot bypass RLS on businesses, so use the service role key to
@@ -105,6 +139,13 @@ export async function onRequestPost({ request, env }) {
       }
     } else {
       console.log('Reward sender: SUPABASE_SERVICE_ROLE_KEY missing; using', senderId);
+    }
+
+    // Shorten the unsubscribe link via vsms.io so it passes UK carrier filters
+    if (businessId && env.VOODOO_API_KEY && finalSms.includes(optUrl)) {
+      const optName = `opt-${businessId.replace(/-/g, '').substring(0, 20)}`;
+      const vsmsOpt = await shortenVoodooLink(optUrl, optName, env.VOODOO_API_KEY);
+      if (vsmsOpt) finalSms = finalSms.replace(optUrl, vsmsOpt);
     }
 
     // 4. VOODOO SMS NETWORK HANDOFF
