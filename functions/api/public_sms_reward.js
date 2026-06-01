@@ -71,23 +71,40 @@ export async function onRequestPost({ request, env }) {
        .replace(/{{google_link}}/g, gmbUrl || 'https://google.com')
        .replace(/{{unsubscribe_link}}/g, `https://reviewzly.com/opt-out?b=${businessId}`);
 
-    // Resolve the correct sender ID for this business.
-    // The anon key cannot bypass RLS on businesses, so we use the service role
-    // key (same key used by cron_dispatch) which reads any row by ID.
-    let senderId = rpcData.sender_id || 'Reviewzly';
-    if (businessId && supabaseUrl) {
-      const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
-      if (serviceRole) {
-        const bizRes = await fetch(
-          `${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}&select=sms_sender_id`,
-          { headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}` } }
-        );
-        if (bizRes.ok) {
+    // Resolve the correct sender ID. Public endpoint has no user JWT, and the
+    // anon key cannot bypass RLS on businesses, so use the service role key to
+    // read sms_sender_id directly. Resolve business_id from the client (uid) if
+    // the RPC didn't return it, so this never depends on the RPC's shape.
+    let senderId = (rpcData.sender_id && rpcData.sender_id.trim()) || 'Reviewzly';
+    const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
+    if (serviceRole && supabaseUrl) {
+      try {
+        let bizId = businessId;
+        if (!bizId) {
+          const cRes = await fetch(
+            `${supabaseUrl}/rest/v1/clients?id=eq.${uid}&select=business_id`,
+            { headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}` } }
+          );
+          const cRows = await cRes.json().catch(() => []);
+          bizId = cRows?.[0]?.business_id || '';
+        }
+        if (bizId) {
+          const bizRes = await fetch(
+            `${supabaseUrl}/rest/v1/businesses?id=eq.${bizId}&select=sms_sender_id`,
+            { headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}` } }
+          );
           const bizRows = await bizRes.json().catch(() => []);
           const configured = bizRows?.[0]?.sms_sender_id?.trim();
           if (configured && configured.length >= 3) senderId = configured;
+          console.log('Reward sender resolution:', JSON.stringify({ bizId, configured, finalSender: senderId, hadServiceRole: !!serviceRole }));
+        } else {
+          console.log('Reward sender: no business_id resolved; using', senderId);
         }
+      } catch (e) {
+        console.error('Reward sender resolution error:', e?.message);
       }
+    } else {
+      console.log('Reward sender: SUPABASE_SERVICE_ROLE_KEY missing; using', senderId);
     }
 
     // 4. VOODOO SMS NETWORK HANDOFF
