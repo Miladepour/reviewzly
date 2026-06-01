@@ -4,21 +4,37 @@ export async function onRequest(context) {
   }
 
   try {
-    // 1. Enforce STRICT Token Header validation
+    // 1. Enforce STRICT Token Header validation.
+    // Token format: base64("<businessId>:<INBOUND_WEBHOOK_SECRET>"). The shared
+    // secret prevents anyone who merely knows a business UUID (visible in opt-out
+    // links / admin panel) from injecting fake inbound SMS for that business.
+    const inboundSecret = context.env.INBOUND_WEBHOOK_SECRET;
+    if (!inboundSecret) {
+      return new Response(JSON.stringify({ error: "Inbound webhook not configured." }), {
+          status: 503, headers: { "Content-Type": "application/json" }
+      });
+    }
+
     const tokenHeader = context.request.headers.get('x-voodoo-token');
-    
     let bid = null;
+    let providedSecret = null;
     if (tokenHeader) {
+      let decoded;
       try {
-        bid = atob(tokenHeader).trim();
-      } catch(e) {
-        bid = tokenHeader.trim(); // Fallback for raw text tokens
+        decoded = atob(tokenHeader).trim();
+      } catch (e) {
+        decoded = tokenHeader.trim();
+      }
+      const sep = decoded.lastIndexOf(':');
+      if (sep > 0) {
+        bid = decoded.slice(0, sep).trim();
+        providedSecret = decoded.slice(sep + 1).trim();
       }
     }
 
-    if (!bid || bid.length < 10) {
-      return new Response(JSON.stringify({ error: "Unauthorized. Missing or invalid cryptographic token." }), { 
-          status: 403, headers: { "Content-Type": "application/json" } 
+    if (!bid || bid.length < 10 || providedSecret !== inboundSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized. Missing or invalid token." }), {
+          status: 403, headers: { "Content-Type": "application/json" }
       });
     }
 

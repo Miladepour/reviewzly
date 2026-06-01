@@ -38,11 +38,13 @@ async function shortenVoodooLink(longUrl, name, apiKey) {
 export async function onRequestPost({ request, env }) {
   try {
     // 1. HARD SECURITY LOCK
-    // This strictly prevents the public or scrapers from hijacking the Cron and blasting fake sequences
+    // Prevents the public or scrapers from hijacking the cron and blasting SMS.
+    // Fail closed: if CRON_SECRET isn't configured, reject everything (no public default).
     const authHeader = request.headers.get("Authorization");
-    const expectedSecret = `Bearer ${env.CRON_SECRET || 'REVIEWZLY_CRON_LOCK_123'}`;
-    
-    if (authHeader !== expectedSecret) {
+    if (!env.CRON_SECRET) {
+      return new Response(JSON.stringify({ error: "Cron secret not configured." }), { status: 503 });
+    }
+    if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
       return new Response(JSON.stringify({ error: "UNAUTHORIZED CRON INVOCATION" }), { status: 401 });
     }
 

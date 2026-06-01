@@ -1,6 +1,49 @@
+// Verify Stripe's signature header using HMAC-SHA256 (Web Crypto, edge-compatible).
+async function verifyStripeSignature(rawBody, sigHeader, secret) {
+  if (!sigHeader || !secret) return false;
+  const parts = Object.fromEntries(
+    sigHeader.split(',').map(kv => kv.split('=').map(s => s.trim()))
+  );
+  const timestamp = parts.t;
+  const expected = parts.v1;
+  if (!timestamp || !expected) return false;
+
+  // Reject events older than 5 minutes (replay window).
+  const age = Math.floor(Date.now() / 1000) - Number(timestamp);
+  if (!Number.isFinite(age) || Math.abs(age) > 300) return false;
+
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(`${timestamp}.${rawBody}`));
+  const computed = [...new Uint8Array(sigBuf)].map(b => b.toString(16).padStart(2, '0')).join('');
+
+  // Constant-time-ish comparison
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
+// Module-scope replay cache (best-effort per edge instance).
+const processedEvents = new Set();
+
 export async function onRequestPost({ request, env }) {
   try {
     const rawPayload = await request.clone().text();
+
+    if (!env.STRIPE_SECRET_KEY) {
+        return new Response(JSON.stringify({ error: "Webhook receiver offline." }), { status: 500 });
+    }
+
+    // 1. PRIMARY: verify the HMAC signature against the raw body.
+    const sigHeader = request.headers.get('stripe-signature');
+    const sigOk = await verifyStripeSignature(rawPayload, sigHeader, env.STRIPE_WEBHOOK_SECRET);
+    if (!sigOk) {
+        return new Response(JSON.stringify({ error: "Invalid webhook signature." }), { status: 400 });
+    }
+
     let event;
     try {
         event = JSON.parse(rawPayload);
@@ -8,25 +51,27 @@ export async function onRequestPost({ request, env }) {
         return new Response(JSON.stringify({ error: "Malformed payload structure" }), { status: 400 });
     }
 
-    if (!env.STRIPE_SECRET_KEY) {
-        return new Response(JSON.stringify({ error: "API Misconfiguration. Webhook receiver offline." }), { status: 500 });
-    }
-
     if (!event.id) {
-        return new Response(JSON.stringify({ error: "No Event Identifier. Suspicious connection blocked." }), { status: 400 });
+        return new Response(JSON.stringify({ error: "No event identifier." }), { status: 400 });
     }
 
-    // NATIVE VALIDATION: Rather than computing cryptographically heavy edge hashes,
-    // we query Stripe natively. If Stripe returns the event under our Secret Key, it's 100% authentic and un-spoofable.
+    // 2. REPLAY GUARD: ignore an event ID we've already processed this instance.
+    if (processedEvents.has(event.id)) {
+        return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
+    }
+
+    // 3. SECONDARY: re-fetch the authentic event from Stripe so we act on Stripe's
+    // copy (not the request body) — defends against any tampering past the signature.
     const verifyRes = await fetch(`https://api.stripe.com/v1/events/${event.id}`, {
         headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
     });
 
     if (!verifyRes.ok) {
-        return new Response(JSON.stringify({ error: "Fraudulent Webhook Event: Event sequence unrecognized by Stripe HQ." }), { status: 403 });
+        return new Response(JSON.stringify({ error: "Event not recognized by Stripe." }), { status: 403 });
     }
 
     const verifiedEvent = await verifyRes.json();
+    processedEvents.add(event.id);
 
     // Now safely process the authentically validated workflow
     if (verifiedEvent.type === 'invoice.payment_succeeded') {
@@ -120,6 +165,6 @@ export async function onRequestPost({ request, env }) {
 
   } catch (err) {
     console.error("Webhook processing crash:", err);
-    return new Response(JSON.stringify({ error: "Critical Webhook System Failure", details: err.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Webhook processing error" }), { status: 500 });
   }
 }

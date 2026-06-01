@@ -75,7 +75,8 @@ export async function onRequestPost({ request, env }) {
 
     if (!stripeResponse.ok) {
         const errorDetails = await stripeResponse.text();
-        return new Response(JSON.stringify({ error: "Upstream gateway rejected checkout configuration.", details: errorDetails }), { status: 502 });
+        console.error("Stripe checkout rejected:", errorDetails);
+        return new Response(JSON.stringify({ error: "Payment gateway rejected the checkout." }), { status: 502 });
     }
 
     const sessionData = await stripeResponse.json();
@@ -83,6 +84,7 @@ export async function onRequestPost({ request, env }) {
     return new Response(JSON.stringify({ url: sessionData.url }), { status: 200, headers: {'Content-Type': 'application/json'} });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Internal crash on Checkout Initialization", details: err.message }), { status: 500 });
+    console.error("Checkout init error:", err?.message);
+    return new Response(JSON.stringify({ error: "Could not start checkout" }), { status: 500 });
   }
 }

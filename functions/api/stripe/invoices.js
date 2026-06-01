@@ -60,6 +60,7 @@ export async function onRequestGet({ request, env }) {
     return new Response(JSON.stringify({ invoices: safeInvoices }), { status: 200, headers: {'Content-Type': 'application/json'} });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Internal crash compiling historical billing data", details: err.message }), { status: 500 });
+    console.error("Invoices fetch error:", err?.message);
+    return new Response(JSON.stringify({ error: "Could not load billing history" }), { status: 500 });
   }
 }

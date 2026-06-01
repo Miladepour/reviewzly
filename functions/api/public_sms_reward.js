@@ -82,7 +82,8 @@ export async function onRequestPost({ request, env }) {
 
     if (!rpcResponse.ok) {
         const errorText = await rpcResponse.text();
-        return new Response(JSON.stringify({ error: "Internal Gateway Refusals", details: errorText }), { status: 500, headers: { 'Content-Type': 'application/json' }});
+        console.error("Reward RPC error:", errorText);
+        return new Response(JSON.stringify({ error: "Internal Gateway Refusal" }), { status: 500, headers: { 'Content-Type': 'application/json' }});
     }
 
     const rpcData = await rpcResponse.json();

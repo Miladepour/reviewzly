@@ -69,7 +69,8 @@ export async function onRequestPost({ request, env }) {
 
     if (!patchRes.ok) {
         const patchErr = await patchRes.text();
-        return new Response(JSON.stringify({ error: "Could not update account after cancellation.", details: patchErr }), { status: 500, headers: {'Content-Type': 'application/json'} });
+        console.error("Cancel DB patch failed:", patchErr);
+        return new Response(JSON.stringify({ error: "Could not update account after cancellation." }), { status: 500, headers: {'Content-Type': 'application/json'} });
     }
 
     return new Response(JSON.stringify({
@@ -79,6 +80,7 @@ export async function onRequestPost({ request, env }) {
     }), { status: 200, headers: {'Content-Type': 'application/json'} });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Internal crash during cancellation protocol", details: err.message }), { status: 500 });
+    console.error("Cancellation error:", err?.message);
+    return new Response(JSON.stringify({ error: "Cancellation could not be completed." }), { status: 500 });
   }
 }
