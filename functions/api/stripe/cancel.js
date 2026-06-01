@@ -33,15 +33,23 @@ export async function onRequestPost({ request, env }) {
         return new Response(JSON.stringify({ error: "No active subscription found mathematically linked to this account." }), { status: 400 });
     }
 
-    // 3. Command Stripe to hard-delete the subscription
-    const stripeRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
-        method: 'DELETE',
+    // 3. Cancel the subscription via Stripe's current API (POST .../cancel)
+    const stripeRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}/cancel`, {
+        method: 'POST',
         headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
     });
 
     if (!stripeRes.ok) {
-        const errDump = await stripeRes.text();
-        throw new Error("Stripe API failed to terminate the sequence. " + errDump);
+        const errBody = await stripeRes.json().catch(() => ({}));
+        // If Stripe says the subscription doesn't exist (e.g. it was created in test
+        // mode but we're now in live mode), treat it as already cancelled and clean
+        // up the DB so the user isn't stuck.
+        const noSuchSub = errBody?.error?.code === 'resource_missing' ||
+                          errBody?.error?.message?.toLowerCase().includes('no such subscription');
+        if (!noSuchSub) {
+            throw new Error("Stripe API failed: " + (errBody?.error?.message || stripeRes.status));
+        }
+        // Fall through — subscription not found in this environment, clean up DB anyway
     }
 
     // 4. Cleanse Local Database Tracking
