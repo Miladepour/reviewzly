@@ -22,9 +22,9 @@ export async function onRequestGet({ request, env }) {
     const businessId = userEntity.id;
 
     // 2. Fetch the Stripe Customer ID from the Database
-    const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
+    // Use the user's own auth token — RLS allows them to read their own row.
     const dbRes = await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}&select=stripe_customer_id`, {
-        headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}` }
+        headers: { apikey: supabaseKey, Authorization: authHeader }
     });
     
     const dbData = await dbRes.json();

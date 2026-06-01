@@ -21,9 +21,10 @@ export async function onRequestPost({ request, env }) {
     const businessId = userEntity.id;
 
     // 2. Fetch the Stripe Subscription ID from Database
+    // Use the user's own auth token — RLS allows them to read their own row.
     const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
     const dbRes = await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}&select=stripe_subscription_id`, {
-        headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}` }
+        headers: { apikey: supabaseKey, Authorization: authHeader }
     });
     
     const dbData = await dbRes.json();
@@ -53,10 +54,12 @@ export async function onRequestPost({ request, env }) {
     }
 
     // 4. Cleanse Local Database Tracking
+    const patchKey = serviceRole || supabaseKey;
+    const patchAuth = serviceRole ? `Bearer ${serviceRole}` : authHeader;
     await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}` },
-        body: JSON.stringify({ 
+        headers: { 'Content-Type': 'application/json', 'apikey': patchKey, 'Authorization': patchAuth },
+        body: JSON.stringify({
             stripe_subscription_id: null,
             active_plan: null
         })
