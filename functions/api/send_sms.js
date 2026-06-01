@@ -160,7 +160,7 @@ export async function onRequestPost({ request, env }) {
     if (businessId && env.VOODOO_API_KEY) {
       const optUrl = `https://reviewzly.com/opt-out?b=${businessId}`;
       if (finalMsg.includes(optUrl)) {
-        const optName = `opt-${businessId.replace(/-/g, '').substring(0, 20)}`;
+        const optName = `opt${businessId.replace(/-/g, '').substring(0, 20)}`;
         const vsmsOpt = await shortenVoodooLink(optUrl, optName, env.VOODOO_API_KEY);
         if (vsmsOpt) finalMsg = finalMsg.replace(optUrl, vsmsOpt);
       }

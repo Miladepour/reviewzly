@@ -138,7 +138,7 @@ export async function onRequestPost({ request, env }) {
             // Unsubscribe link
             const optUrl = `https://reviewzly.com/opt-out?b=${bData.id}`;
             if (builtSms.includes(optUrl)) {
-                const optName = `opt-${bData.id.replace(/-/g, '').substring(0, 20)}`;
+                const optName = `opt${bData.id.replace(/-/g, '').substring(0, 20)}`;
                 const vsmsOpt = await shortenVoodooLink(optUrl, optName, env.VOODOO_API_KEY);
                 if (vsmsOpt) builtSms = builtSms.replace(optUrl, vsmsOpt);
             }

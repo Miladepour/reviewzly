@@ -143,7 +143,7 @@ export async function onRequestPost({ request, env }) {
 
     // Shorten the unsubscribe link via vsms.io so it passes UK carrier filters
     if (businessId && env.VOODOO_API_KEY && finalSms.includes(optUrl)) {
-      const optName = `opt-${businessId.replace(/-/g, '').substring(0, 20)}`;
+      const optName = `opt${businessId.replace(/-/g, '').substring(0, 20)}`;
       const vsmsOpt = await shortenVoodooLink(optUrl, optName, env.VOODOO_API_KEY);
       if (vsmsOpt) finalSms = finalSms.replace(optUrl, vsmsOpt);
     }
