@@ -121,7 +121,7 @@ const Inbox = () => {
         });
         
         if (!voodooRes.ok) {
-            if (voodooRes.status === 402) showChatToast("Network Error: Insufficient SMS Credits to broadcast messages.");
+            if (voodooRes.status === 402) showChatToast("Network Error: Insufficient invites to broadcast messages.");
             else showChatToast("Failed to send message via Cloudflare Edge API.");
             return;
         }
@@ -172,7 +172,7 @@ const Inbox = () => {
         });
         
         if (!voodooRes.ok) {
-            if (voodooRes.status === 402) showChatToast("Network Error: Insufficient SMS Credits to broadcast messages.");
+            if (voodooRes.status === 402) showChatToast("Network Error: Insufficient invites to broadcast messages.");
             else showChatToast("Failed to send message via Cloudflare Edge API.");
             return;
         }

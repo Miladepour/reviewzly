@@ -41,9 +41,9 @@ const Terms = () => {
             </section>
 
             <section>
-              <h2 className="text-title-lg mb-3">4. Billing and SMS Credits</h2>
+              <h2 className="text-title-lg mb-3">4. Billing and Invites</h2>
               <p className="text-body" style={{ lineHeight: 1.6 }}>
-                SMS capabilities are governed by a prepaid credit system. Credits are non-refundable. In the event a text message is rejected by the carrier due to improper formatting or policy violations, credits deducted by the processing engine may not be recuperated.
+                Invites are governed by a prepaid system. Invites are non-refundable. In the event a text message is rejected by the carrier due to improper formatting or policy violations, invites deducted by the processing engine may not be recuperated.
               </p>
             </section>
 

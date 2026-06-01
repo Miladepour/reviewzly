@@ -15,6 +15,7 @@ const ManagePlan = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [customInvites, setCustomInvites] = useState(50);
 
   const fetchIdentity = async () => {
     try {
@@ -53,17 +54,19 @@ const ManagePlan = () => {
      fetchInvoices();
   }, []);
 
-  const handleCheckout = async (creditAmount) => {
+  const handleCheckout = async (creditAmount, options = {}) => {
+    const { custom = false } = options;
     setIsCheckingOut(true);
-    addToast(`Initializing secure connection to Stripe for ${creditAmount} package...`, "success");
+    addToast(`Initializing secure connection to Stripe...`, "success");
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Authentication missing.");
 
+      const body = custom ? { customInvites: creditAmount } : { creditAmount };
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creditAmount })
+        body: JSON.stringify(body)
       });
 
       if (!res.ok) {
@@ -156,24 +159,24 @@ const ManagePlan = () => {
       {/* TIER UPGRADE SYSTEM */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
         {[
-            { 
-              credits: 100, 
-              name: 'Starter Spark', 
-              price: '£30 / mo',
+            {
+              credits: 50,
+              name: 'Starter Spark',
+              price: '£35 / mo',
               desc: 'Perfect for small businesses capturing essential reviews natively.',
               exclusive: false
             },
-            { 
-              credits: 250, 
-              name: 'Growth Rocket', 
-              price: '£65 / mo',
+            {
+              credits: 150,
+              name: 'Growth Rocket',
+              price: '£90 / mo',
               desc: 'For high-velocity outfits needing aggressive client aggregation.',
               exclusive: false
             },
-            { 
-              credits: 500, 
-              name: 'Enterprise Titan', 
-              price: '£125 / mo',
+            {
+              credits: 500,
+              name: 'Enterprise Titan',
+              price: '£290 / mo',
               desc: 'Full-scale operational matrix with dedicated channels.',
               exclusive: true
             }
@@ -189,7 +192,7 @@ const ManagePlan = () => {
               
               <div style={{ padding: '1rem 0', borderBottom: '1px solid var(--outline-variant)', borderTop: '1px solid var(--outline-variant)', marginBottom: '1.5rem' }}>
                   <p style={{ fontSize: '0.9rem', color: 'var(--on-surface-variant)' }}>{tier.desc}</p>
-                  <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--on-surface)', marginTop: '0.5rem' }}>{tier.credits} SMS Mapped <span style={{fontSize:'0.8rem', fontWeight:'normal'}}>(Rollover enabled)</span></p>
+                  <p style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--on-surface)', marginTop: '0.5rem' }}>{tier.credits} invites / month <span style={{fontSize:'0.8rem', fontWeight:'normal'}}>(Rollover enabled)</span></p>
                   {tier.exclusive && (
                       <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc2626', marginTop: '0.5rem' }}>2-Way SMS Available (Requires Dedicated Phone)</p>
                   )}
@@ -206,6 +209,48 @@ const ManagePlan = () => {
               </button>
             </div>
         ))}
+      </div>
+
+      {/* CUSTOM TOP-UP (one-time, £1 per invite) */}
+      <div className="card" style={{ padding: '2rem', borderLeft: '4px solid var(--primary)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1.5rem' }}>
+          <div style={{ flex: '1 1 280px' }}>
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.25rem' }}>Need extra invites?</h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--on-surface-variant)' }}>
+              Buy a one-time top-up at <strong>£1 per invite</strong>. Added instantly — no subscription change.
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--on-surface-variant)', textTransform: 'uppercase' }}>Invites</label>
+              <input
+                type="number"
+                min="1"
+                max="10000"
+                value={customInvites}
+                onChange={(e) => setCustomInvites(e.target.value)}
+                style={{ padding: '0.75rem', width: '120px', borderRadius: '0.5rem', border: '1px solid var(--outline-variant)', fontSize: '1rem', fontWeight: 700 }}
+              />
+            </div>
+            <div style={{ textAlign: 'center', minWidth: '90px' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--on-surface-variant)', textTransform: 'uppercase' }}>Total</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--primary)' }}>£{Math.max(0, Math.floor(Number(customInvites) || 0))}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const n = Math.floor(Number(customInvites) || 0);
+                if (n < 1) return addToast("Enter at least 1 invite.", "warning");
+                handleCheckout(n, { custom: true });
+              }}
+              disabled={isCheckingOut}
+              className="btn-primary"
+              style={{ padding: '0.85rem 1.75rem', borderRadius: '0.5rem', fontSize: '1rem', fontWeight: 700, cursor: isCheckingOut ? 'wait' : 'pointer', opacity: isCheckingOut ? 0.6 : 1 }}
+            >
+              {isCheckingOut ? 'Routing...' : 'Buy Invites'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* INVOICES TABLE */}

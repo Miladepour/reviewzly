@@ -191,7 +191,7 @@ export async function onRequestPost({ request, env }) {
     const voodooBodyText = await voodooResponse.text();
     if (!voodooResponse.ok) {
        console.error("Voodoo API Frame Error:", voodooBodyText);
-       return new Response(JSON.stringify({ error: "Telecom network rejection.", details: voodooBodyText }), { status: 502, headers: { 'Content-Type': 'application/json' }});
+       return new Response(JSON.stringify({ error: "Telecom network rejection." }), { status: 502, headers: { 'Content-Type': 'application/json' }});
     }
 
     let voodooMessageId = null;
@@ -204,6 +204,18 @@ export async function onRequestPost({ request, env }) {
       voodooStatus = parsed?.messages?.[0]?.status || parsed?.status || parsed?.error || null;
     } catch {
       /* non-JSON Voodoo payloads still count as ok when HTTP succeeded */
+    }
+
+    // Bump the tamper-proof lifetime invite counter (independent of client adds/
+    // deletes). Best-effort; never blocks the send response.
+    if (businessId && env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/rpc/increment_invites_sent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({ p_biz_id: businessId })
+        });
+      } catch { /* non-fatal */ }
     }
 
     return new Response(JSON.stringify({

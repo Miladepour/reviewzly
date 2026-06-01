@@ -44,7 +44,7 @@ const FAQ_DATA = {
     { 
       id: 'c2', 
       q: 'What is an Instant Broadcast mass blast?', 
-      a: 'An Instant Broadcast immediately queries your target audience (e.g. "All Un-reviewed Clients") and sends the SMS right now. Be careful: this will instantly consume your Voodoo SMS credits for every client reached.' 
+      a: 'An Instant Broadcast immediately queries your target audience (e.g. "All Un-reviewed Clients") and sends the SMS right now. Be careful: this will instantly consume one invite for every client reached.'
     },
     { 
       id: 'c3', 

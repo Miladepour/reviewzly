@@ -7,21 +7,40 @@ export async function onRequestPost({ request, env }) {
     }
 
     const payload = await request.json();
-    const { creditAmount } = payload;
-    
-    // Map Pricing Tiers Programmatically (prevent client-side manipulation)
-    const pricingMap = {
-      100: { price: 3000, name: 'Starter Spark' },     // £30.00
-      250: { price: 6500, name: 'Growth Rocket' },   // £65.00
-      500: { price: 12500, name: 'Enterprise Titan' } // £125.00
-    };
+    const { creditAmount, customInvites } = payload;
 
-    const tierData = pricingMap[creditAmount];
-    if (!tierData) {
-      return new Response(JSON.stringify({ error: "Invalid configuration. That tier does not exist natively." }), { status: 400 });
+    // Determine pricing + checkout mode. Plans are monthly subscriptions; a
+    // custom top-up is a one-time payment at £1 per invite.
+    let unitAmount;      // pence
+    let planName;
+    let inviteAmount;    // invites granted on payment
+    let isCustom = false;
+
+    if (customInvites !== undefined && customInvites !== null) {
+      // Custom one-time top-up (£1 / invite)
+      const n = Math.floor(Number(customInvites));
+      if (!Number.isFinite(n) || n < 1 || n > 10000) {
+        return new Response(JSON.stringify({ error: "Enter a whole number of invites between 1 and 10000." }), { status: 400 });
+      }
+      isCustom = true;
+      inviteAmount = n;
+      unitAmount = n * 100;   // £1.00 each
+      planName = 'Custom Top-Up';
+    } else {
+      // Fixed monthly plans, keyed by invite count (prevents client-side price manipulation)
+      const pricingMap = {
+        50:  { price: 3500,  name: 'Starter Spark' },     // £35.00
+        150: { price: 9000,  name: 'Growth Rocket' },     // £90.00
+        500: { price: 29000, name: 'Enterprise Titan' }   // £290.00
+      };
+      const tierData = pricingMap[creditAmount];
+      if (!tierData) {
+        return new Response(JSON.stringify({ error: "Invalid plan selection." }), { status: 400 });
+      }
+      inviteAmount = creditAmount;
+      unitAmount = tierData.price;
+      planName = tierData.name;
     }
-    const unitAmount = tierData.price;
-    const planName = tierData.name;
 
     // 2. Validate Identity using Supabase Auth (Ensure we get their accurate Business ID)
     const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
@@ -47,19 +66,27 @@ export async function onRequestPost({ request, env }) {
     // URL Encode payload perfectly for native Stripe REST Form Data
     const formData = new URLSearchParams();
     formData.append('payment_method_types[0]', 'card');
-    formData.append('mode', 'subscription');
+    formData.append('mode', isCustom ? 'payment' : 'subscription');
     formData.append('line_items[0][price_data][currency]', 'gbp');
-    formData.append('line_items[0][price_data][recurring][interval]', 'month');
-    formData.append('line_items[0][price_data][product_data][name]', `Reviewzly ${planName} Plan (${creditAmount} SMS)`);
+    if (!isCustom) {
+      formData.append('line_items[0][price_data][recurring][interval]', 'month');
+    }
+    formData.append('line_items[0][price_data][product_data][name]', `Reviewzly ${planName} (${inviteAmount} invites)`);
     formData.append('line_items[0][price_data][unit_amount]', unitAmount.toString());
     formData.append('line_items[0][quantity]', '1');
     formData.append('client_reference_id', businessId);
-    
-    // Inject custom variables into the Subscription object directly so the webhook can extract them forever
-    formData.append('subscription_data[metadata][business_id]', businessId);
-    formData.append('subscription_data[metadata][credit_amount]', creditAmount.toString());
-    formData.append('subscription_data[metadata][plan_tier]', planName);
-    
+
+    // Inject metadata so the webhook can grant invites. Subscriptions carry it on
+    // subscription_data; one-time payments carry it on payment_intent_data.
+    const metaTarget = isCustom ? 'payment_intent_data' : 'subscription_data';
+    formData.append(`${metaTarget}[metadata][business_id]`, businessId);
+    formData.append(`${metaTarget}[metadata][credit_amount]`, inviteAmount.toString());
+    formData.append(`${metaTarget}[metadata][plan_tier]`, planName);
+    // Also stamp the session itself so checkout.session.completed can read it directly.
+    formData.append('metadata[business_id]', businessId);
+    formData.append('metadata[credit_amount]', inviteAmount.toString());
+    formData.append('metadata[plan_tier]', planName);
+
     // Auto-return the user back to the native dashboard instantly
     formData.append('success_url', `${new URL(request.url).origin}/dashboard/plan?payment=success`);
     formData.append('cancel_url', `${new URL(request.url).origin}/dashboard/plan?payment=cancelled`);

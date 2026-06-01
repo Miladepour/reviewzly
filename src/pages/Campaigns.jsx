@@ -317,11 +317,11 @@ const Campaigns = () => {
                          </div>
                          <div className="flex justify-between items-center mb-3">
                              <span className="text-body" style={{ fontWeight: 600 }}>Expected Cost:</span>
-                             <span className="text-title-lg text-primary">{predictedCost} Credits</span>
+                             <span className="text-title-lg text-primary">{predictedCost} invites</span>
                          </div>
                          <div className="flex justify-between items-center pt-3" style={{ borderTop: '1px dashed var(--outline-variant)' }}>
-                             <span className="text-body" style={{ fontWeight: 600 }}>Available Ledger Balance:</span>
-                             <span className="text-title-lg" style={{ color: isAffordable ? '#2e7d32' : '#c62828' }}>{currentCredits} Credits</span>
+                             <span className="text-body" style={{ fontWeight: 600 }}>Available Invites:</span>
+                             <span className="text-title-lg" style={{ color: isAffordable ? '#2e7d32' : '#c62828' }}>{currentCredits} invites</span>
                          </div>
                      </div>
 

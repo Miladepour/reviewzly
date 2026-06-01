@@ -151,7 +151,7 @@ const Clients = () => {
           }
 
           if (commLogs.some(t => t.includes('Insufficient SMS'))) {
-            displayNotice('Insufficient SMS Credits.', true);
+            displayNotice('Insufficient invites.', true);
           }
 
           setAddName(''); setAddPhone(''); setAddEmail(''); setAddDob('');

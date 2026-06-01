@@ -190,9 +190,9 @@ const SuperAdmin = () => {
         </div>
 
         <div className="card" style={{ borderLeft: '4px solid #06b6d4' }}>
-          <h3 style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Platform SMS Credits</h3>
+          <h3 style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Platform Invites</h3>
           <p style={{ fontSize: '2.5rem', fontWeight: 800, color: '#164e63', margin: '0.5rem 0' }}>{totalPlatformCredits}</p>
-          <p style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>Total credits held by users</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>Total invites held by users</p>
         </div>
 
         <div className="card" style={{ borderLeft: '4px solid #8b5cf6' }}>
@@ -226,7 +226,7 @@ const SuperAdmin = () => {
               <tr style={{ borderBottom: '2px solid var(--surface-container-low)', textAlign: 'left' }}>
                 <th style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>Business Name</th>
                 <th style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>Plan</th>
-                <th style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>SMS Credits</th>
+                <th style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>Invites</th>
                 <th style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>Phone</th>
                 <th style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>Country</th>
                 <th style={{ padding: '0.75rem', color: 'var(--on-surface-variant)' }}>Registered</th>

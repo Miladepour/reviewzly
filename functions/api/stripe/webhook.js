@@ -146,13 +146,66 @@ export async function onRequestPost({ request, env }) {
                                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
                                   <h2 style="color: #2e7d32;">Payment Received</h2>
                                   <p>Hello,</p>
-                                  <p>Thank you for choosing Reviewzly. We have successfully processed your payment of <b>£${(invoice.amount_paid / 100).toFixed(2)}</b> for the ${planTier} plan. Your ${creditAmount} credits have instantly loaded and rolled over securely.</p>
+                                  <p>Thank you for choosing Reviewzly. We have successfully processed your payment of <b>£${(invoice.amount_paid / 100).toFixed(2)}</b> for the ${planTier} plan. Your ${creditAmount} invites have instantly loaded and rolled over securely.</p>
                                   <p style="margin-top: 2rem;">
                                       <a href="${invoice.hosted_invoice_url}" style="background-color: #2e7d32; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">View or Download Official Invoice</a>
                                   </p>
                                   <p style="margin-top: 2rem; font-size: 0.85rem; color: #888;">If you have any questions, reach out to our network team.</p>
                                 </div>
                             `
+                        })
+                    });
+                }
+            }
+        }
+    }
+
+    // One-time custom top-up: grant invites once on a completed payment session.
+    if (verifiedEvent.type === 'checkout.session.completed') {
+        const session = verifiedEvent.data.object;
+        // Only handle one-time payments here; subscriptions are handled above via invoice.payment_succeeded.
+        if (session.mode === 'payment') {
+            const businessId = session.metadata?.business_id;
+            const creditAmount = parseInt(session.metadata?.credit_amount || '0', 10);
+
+            if (businessId && creditAmount > 0) {
+                const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
+                const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
+                if (!supabaseUrl || !serviceRole) {
+                    throw new Error("Cannot append invites: SUPABASE_SERVICE_ROLE_KEY missing on Edge");
+                }
+
+                const rpcRes = await fetch(`${supabaseUrl}/rest/v1/rpc/add_sms_credits`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}` },
+                    body: JSON.stringify({ p_biz_id: businessId, p_amount: creditAmount })
+                });
+                if (!rpcRes.ok) {
+                    const rpcErr = await rpcRes.text();
+                    throw new Error("Supabase RPC failed to add top-up invites: " + rpcErr);
+                }
+
+                // Stamp the customer id (do not touch active_plan — top-ups don't change the plan).
+                if (session.customer) {
+                    await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}`, 'Prefer': 'return=minimal' },
+                        body: JSON.stringify({ stripe_customer_id: session.customer })
+                    });
+                }
+
+                if (env.RESEND_API_KEY && session.customer_details?.email) {
+                    await fetch('https://api.resend.com/emails', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            from: 'Reviewzly Billing <billing@reviewzly.com>',
+                            to: [session.customer_details.email],
+                            subject: `Reviewzly Top-Up - ${creditAmount} invites`,
+                            html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                                     <h2 style="color: #2e7d32;">Top-Up Received</h2>
+                                     <p>Your payment of <b>£${(session.amount_total / 100).toFixed(2)}</b> has been processed and <b>${creditAmount} invites</b> have been added to your account.</p>
+                                   </div>`
                         })
                     });
                 }

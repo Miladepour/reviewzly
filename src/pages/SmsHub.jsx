@@ -98,7 +98,7 @@ const SmsHub = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
         
-        {/* Credits Metric Card */}
+        {/* Invites Metric Card */}
         <div style={{ padding: '2rem', borderRadius: '1.5rem', backgroundColor: '#e8f5e9', border: '1px solid #c8e6c9', display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#2e7d32', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Available Balance
@@ -107,7 +107,7 @@ const SmsHub = () => {
             {credits}
           </div>
           <p style={{ color: '#388e3c', marginTop: 'auto', paddingTop: '1rem', fontWeight: 600 }}>
-            Active Transmission Credits
+            Available Invites
           </p>
         </div>
 
@@ -167,7 +167,7 @@ const SmsHub = () => {
                 <th style={{ padding: '1rem', fontWeight: 700 }}>Recipient Name</th>
                 <th style={{ padding: '1rem', fontWeight: 700 }}>Mobile End-point</th>
                 <th style={{ padding: '1rem', fontWeight: 700 }}>Network Status</th>
-                <th style={{ padding: '1rem', fontWeight: 700, textAlign: 'center' }}>Cost</th>
+                <th style={{ padding: '1rem', fontWeight: 700, textAlign: 'center' }}>Invites Used</th>
                 <th style={{ padding: '1rem', fontWeight: 700 }}>Timestamp</th>
               </tr>
             </thead>

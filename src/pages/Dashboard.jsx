@@ -156,7 +156,7 @@ const Dashboard = () => {
       }
 
       if (commLogs.some(t => t.includes('Insufficient SMS'))) {
-        addToast('Insufficient SMS Credits.', 'warning');
+        addToast('Insufficient invites.', 'warning');
       }
 
       setMessage('Client securely vaulted into queue. Drip campaign successfully initialized!');
@@ -235,7 +235,7 @@ const Dashboard = () => {
 
           <div className="dashboard-metric-card sms-balance-card">
             <div className="flex flex-col justify-between">
-              <p className="val-sub" style={{ color: '#2e7d32' }}>Platform SMS Balance</p>
+              <p className="val-sub" style={{ color: '#2e7d32' }}>Invites Remaining</p>
               <h2 className="text-display-xl" style={{ fontSize: '3rem', color: '#1b5e20', lineHeight: 1 }}>{smsBalance}</h2>
             </div>
             
@@ -246,7 +246,7 @@ const Dashboard = () => {
               
               {smsBalance !== 'Syncing...' && smsBalance !== 'No Data' && Number(smsBalance) < 50 && (
                  <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#dc2626', color: 'white', padding: '0.35rem 0', borderRadius: '0.5rem', textAlign: 'center', width: '100px' }}>
-                   Low Credit
+                   Low Invites
                  </span>
               )}
               
@@ -255,7 +255,7 @@ const Dashboard = () => {
                  style={{ backgroundColor: '#2e7d32', color: 'white', border: 'none', padding: '0.35rem 0', fontSize: '0.75rem', fontWeight: 700, borderRadius: '0.5rem', cursor: 'pointer', textAlign: 'center', width: '100px' }} 
                  onClick={() => { navigate('/dashboard/plan'); }}
               >
-                 Top-Up Credit
+                 Top-Up Invites
               </button>
             </div>
           </div>
