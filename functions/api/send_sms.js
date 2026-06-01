@@ -1,5 +1,10 @@
 import { normalizeReviewLinksInMessage } from './smsLinkUtils.js';
 
+function extractShortUrl(obj) {
+  // Voodoo API returns the short URL in one of several field names
+  return obj?.shortUrl || obj?.short_url || obj?.link || obj?.url || null;
+}
+
 async function shortenVoodooLink(longUrl, name, apiKey) {
   try {
     const res = await fetch('https://api.voodoosms.com/shorturl', {
@@ -8,17 +13,21 @@ async function shortenVoodooLink(longUrl, name, apiKey) {
       body: JSON.stringify({ name, url: longUrl, method: 'simple' }),
     });
     const data = await res.json().catch(() => null);
-    if (data?.link) return data.link;
+    console.log('Voodoo shorturl create response:', JSON.stringify(data));
+    const created = extractShortUrl(data);
+    if (created) return created;
 
     // Name already exists on this account — fetch the existing short URL
     const listRes = await fetch('https://api.voodoosms.com/shorturl', {
       headers: { 'Authorization': `Bearer ${apiKey}` },
     });
     const list = await listRes.json().catch(() => null);
+    console.log('Voodoo shorturl list response:', JSON.stringify(list)?.slice(0, 500));
     const existing = list?.data?.find(u => u.name === name);
-    if (existing?.link) return existing.link;
-  } catch {
-    // Fall through — SMS still sends with the original URL
+    const found = extractShortUrl(existing);
+    if (found) return found;
+  } catch (err) {
+    console.error('shortenVoodooLink error:', err?.message);
   }
   return null;
 }
