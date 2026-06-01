@@ -8,6 +8,7 @@ const ManagePlan = () => {
   // State
   const [activePlan, setActivePlan] = useState('Loading...');
   const [invoices, setInvoices] = useState([]);
+  const [subInfo, setSubInfo] = useState(null);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
   
   // Checkout & Cancellation State
@@ -41,6 +42,7 @@ const ManagePlan = () => {
         if (res.ok) {
             const result = await res.json();
             setInvoices(result.invoices || []);
+            setSubInfo(result.subscription || null);
         }
     } catch(err) {
         addToast("Network Error loading billing history.", "error");
@@ -146,6 +148,16 @@ const ManagePlan = () => {
           <p className="text-body" style={{ fontSize: '1.05rem', marginTop: '0.25rem' }}>
             Current Active Tier: <strong style={{ color: 'var(--primary)' }}>{activePlan}</strong>
           </p>
+          {subInfo && subInfo.cancel_at_period_end && (subInfo.cancel_at || subInfo.current_period_end) && (
+            <p className="text-body" style={{ fontSize: '0.9rem', marginTop: '0.25rem', color: '#b45309', fontWeight: 600 }}>
+              ⚠️ Cancels on {new Date((subInfo.cancel_at || subInfo.current_period_end) * 1000).toLocaleDateString()} — active until then.
+            </p>
+          )}
+          {subInfo && !subInfo.cancel_at_period_end && subInfo.current_period_end && (
+            <p className="text-body" style={{ fontSize: '0.9rem', marginTop: '0.25rem', color: 'var(--on-surface-variant)' }}>
+              Renews on {new Date(subInfo.current_period_end * 1000).toLocaleDateString()}.
+            </p>
+          )}
         </div>
         {activePlan !== 'Free Tier' && activePlan !== 'Cancelled' && activePlan !== 'Loading...' && (
             <button
@@ -285,6 +297,7 @@ const ManagePlan = () => {
                     <thead>
                         <tr style={{ borderBottom: '2px solid var(--outline-variant)' }}>
                             <th style={{ padding: '1rem', color: 'var(--on-surface-variant)' }}>Date</th>
+                            <th style={{ padding: '1rem', color: 'var(--on-surface-variant)' }}>Description</th>
                             <th style={{ padding: '1rem', color: 'var(--on-surface-variant)' }}>Status</th>
                             <th style={{ padding: '1rem', color: 'var(--on-surface-variant)' }}>Amount</th>
                             <th style={{ padding: '1rem', color: 'var(--on-surface-variant)' }}>Receipt</th>
@@ -294,6 +307,7 @@ const ManagePlan = () => {
                         {invoices.map((inv) => (
                             <tr key={inv.id} style={{ borderBottom: '1px solid var(--outline-variant)' }}>
                                 <td style={{ padding: '1rem', fontWeight: '500' }}>{new Date(inv.created * 1000).toLocaleDateString()}</td>
+                                <td style={{ padding: '1rem', color: 'var(--on-surface)' }}>{inv.description || '—'}</td>
                                 <td style={{ padding: '1rem' }}>
                                     <span style={{ backgroundColor: inv.status === 'paid' ? '#e8f5e9' : '#ffebee', color: inv.status === 'paid' ? '#2e7d32' : '#c62828', padding: '0.3rem 0.6rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' }}>
                                         {inv.status}

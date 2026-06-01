@@ -486,24 +486,23 @@ img { max-width: 100%; height: auto; }
     gap: 1rem !important;
   }
 
-  /* --- Inbox: single-column; show list OR chat, not both --- */
+  /* --- Inbox: iPhone-Messages style — list fills screen; tap opens full chat --- */
   .inbox-shell {
     flex-direction: column;
-    height: 78vh !important;
-    min-height: 0 !important;
+    height: calc(100vh - 140px) !important;  /* fill viewport below the top bar */
+    min-height: 420px !important;
     max-height: none !important;
-    gap: 1rem !important;
+    gap: 0 !important;
   }
-  /* Override the inline flex:1 so the visible pane fills the shell height
-     instead of collapsing (flex main-size beats height in a column). */
+  /* Only one pane shows at a time, and it fills the whole shell. Override the
+     inline flex:1 / height:100% which otherwise collapse in a column flexbox. */
   .inbox-list,
   .inbox-chat {
     width: 100% !important;
-    flex: 1 1 auto !important;
-    height: auto !important;
+    flex: 1 1 100% !important;
+    height: 100% !important;
     min-height: 0 !important;
   }
-  /* When a conversation is open, hide the list and show only the chat */
   .inbox-shell.has-active .inbox-list {
     display: none;
   }

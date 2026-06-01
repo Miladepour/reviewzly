@@ -555,12 +555,19 @@ Alice Smith, 14449876543`}
                  )}
              </div>
 
-             <div className="flex gap-2 justify-end mt-2 pt-4" style={{ borderTop: '1px solid var(--outline-variant)' }}>
+             <div className="flex gap-2 justify-end mt-2 pt-4 flex-wrap" style={{ borderTop: '1px solid var(--outline-variant)' }}>
                 {profileTab === 'data' && (
                      <button onClick={() => setIsEditMode(!isEditMode)} className="btn-primary" style={{ backgroundColor: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)' }}>
                         {isEditMode ? 'Cancel Edit' : 'Edit Profile'}
                      </button>
                 )}
+                <button
+                  onClick={(e) => { handleDeleteClient(e, activeClient.id); setActiveClient(null); }}
+                  className="btn-primary"
+                  style={{ backgroundColor: 'transparent', color: '#e84545', border: '1px solid #e84545' }}
+                >
+                  Delete Client
+                </button>
                 <button onClick={() => setActiveClient(null)} className="btn-primary" style={{ backgroundColor: 'var(--surface-container-highest)', color: 'var(--on-surface)', border: '1px solid var(--outline-variant)' }}>Close Window</button>
              </div>
           </div>

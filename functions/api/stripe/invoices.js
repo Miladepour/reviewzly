@@ -46,18 +46,39 @@ export async function onRequestGet({ request, env }) {
 
     const stripeData = await stripeRes.json();
 
-    // Map into a clean, lightweight array for the React Frontend
+    // Map into a clean, lightweight array for the React Frontend.
+    // description = what they bought (the first line item's description).
     const safeInvoices = stripeData.data.map(inv => ({
         id: inv.id,
         created: inv.created,
         amount_paid: inv.amount_paid,
         currency: inv.currency,
         status: inv.status,
+        description: inv.lines?.data?.[0]?.description || inv.lines?.data?.[0]?.plan?.nickname || '—',
         hosted_invoice_url: inv.hosted_invoice_url,
         invoice_pdf: inv.invoice_pdf
     }));
 
-    return new Response(JSON.stringify({ invoices: safeInvoices }), { status: 200, headers: {'Content-Type': 'application/json'} });
+    // 4. Also report the current subscription's cancellation state so the app can
+    // show "active until / cancels on <date>".
+    let subscription = null;
+    const subListRes = await fetch(`https://api.stripe.com/v1/subscriptions?customer=${stripeCustomerId}&status=active&limit=1`, {
+        headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
+    });
+    if (subListRes.ok) {
+        const subList = await subListRes.json().catch(() => ({}));
+        const sub = subList.data?.[0];
+        if (sub) {
+            subscription = {
+                status: sub.status,
+                cancel_at_period_end: !!sub.cancel_at_period_end,
+                current_period_end: sub.current_period_end || null,
+                cancel_at: sub.cancel_at || null
+            };
+        }
+    }
+
+    return new Response(JSON.stringify({ invoices: safeInvoices, subscription }), { status: 200, headers: {'Content-Type': 'application/json'} });
 
   } catch (err) {
     console.error("Invoices fetch error:", err?.message);
