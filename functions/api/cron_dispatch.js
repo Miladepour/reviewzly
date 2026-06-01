@@ -1,5 +1,40 @@
 import { normalizeReviewLinksInMessage } from './smsLinkUtils.js';
 
+// Shorten reviewzly.com links via vsms.io so follow-up + birthday SMS pass
+// UK carrier filters — same logic as send_sms.js.
+function findVsmsUrl(value) {
+  if (typeof value === 'string') {
+    const m = value.match(/(?:https?:\/\/)?vsms\.(?:io|co)\/[A-Za-z0-9]+/i);
+    return m ? m[0] : null;
+  }
+  if (Array.isArray(value)) { for (const item of value) { const f = findVsmsUrl(item); if (f) return f; } }
+  else if (value && typeof value === 'object') { for (const k of Object.keys(value)) { const f = findVsmsUrl(value[k]); if (f) return f; } }
+  return null;
+}
+function ensureHttps(url) {
+  if (!url) return url;
+  return /^https?:\/\//i.test(url) ? url.replace(/^http:\/\//i, 'https://') : `https://${url}`;
+}
+async function shortenVoodooLink(longUrl, name, apiKey) {
+  try {
+    const res = await fetch('https://api.voodoosms.com/shorturl', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ name, url: longUrl, method: 'simple' }),
+    });
+    const data = await res.json().catch(() => null);
+    const created = findVsmsUrl(data);
+    if (created) return ensureHttps(created);
+    const listRes = await fetch('https://api.voodoosms.com/shorturl', { headers: { 'Authorization': `Bearer ${apiKey}` } });
+    const list = await listRes.json().catch(() => null);
+    const entries = Array.isArray(list) ? list : (list?.data || []);
+    const entry = Array.isArray(entries) ? entries.find(u => u?.name === name || JSON.stringify(u).includes(longUrl)) : null;
+    const found = findVsmsUrl(entry);
+    if (found) return ensureHttps(found);
+  } catch { /* fall through */ }
+  return null;
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     // 1. HARD SECURITY LOCK
@@ -49,21 +84,26 @@ export async function onRequestPost({ request, env }) {
         let nextActionTime = null;
 
         if (currentStep === 1) {
-            smsTemplate = bData.review_sms;
-            // Schedule the upcoming Follow Up
+            // Step 1: review invite (fallback for clients queued before invite refactor)
+            smsTemplate = bData.invite_sms || bData.review_sms;
             nextStepIndex = 2;
             const followDays = bData.follow_up_days || 7;
             const dateCalc = new Date();
             dateCalc.setDate(dateCalc.getDate() + followDays);
             nextActionTime = dateCalc.toISOString();
         } else if (currentStep === 2) {
+            // Step 2: follow-up reminder
             smsTemplate = bData.follow_up_sms;
-            // End the sequence completely
+            nextStepIndex = 0;
+            nextActionTime = null;
+        } else if (currentStep === 3) {
+            // Step 3: birthday SMS (drip_step set to 3 by birthday scheduler)
+            smsTemplate = bData.birthday_sms;
             nextStepIndex = 0;
             nextActionTime = null;
         }
 
-        // If template doesn't exist natively, we just bump the queue forward to avoid hard locking
+        // If template doesn't exist, bump the queue forward to avoid hard locking
         if (!smsTemplate || smsTemplate.trim() === '') {
              await pushClientQueue(supabaseUrl, serviceRole, client.id, nextStepIndex, nextActionTime);
              continue;
@@ -71,14 +111,12 @@ export async function onRequestPost({ request, env }) {
 
         // 4. CHECK BALANCE SECURITY
         if (bData.sms_credits <= 0) {
-            // Cannot send -> leave them in queue to trigger later if credits applied,
-            // OR auto-kill sequence if you want (we will leave in queue for recovery)
             await logComm(supabaseUrl, serviceRole, client.id, bData.id, `[CRON BLOCKED] Insufficient credits to send Step ${currentStep}`);
             continue;
         }
 
-        // 5. PARSE SMS & DEDUCT EXACTLY 1 CREDIT NATIVELY
-        const finalSms = normalizeReviewLinksInMessage(
+        // 5. PARSE SMS & SHORTEN REVIEW LINK VIA VSMS.IO
+        let builtSms = normalizeReviewLinksInMessage(
             smsTemplate
                 .replace(/{{business_name}}/g, bData.name || 'Our Business')
                 .replace(/{{client_name}}/g, client.name || 'there')
@@ -87,12 +125,22 @@ export async function onRequestPost({ request, env }) {
             client.short_code
         );
 
+        // Shorten the reviewzly.com link so it passes UK carrier filters
+        if (client.short_code && env.VOODOO_API_KEY) {
+            const longUrl = `https://reviewzly.com/review/${client.short_code}`;
+            if (builtSms.includes(longUrl)) {
+                const vsmsUrl = await shortenVoodooLink(longUrl, client.short_code, env.VOODOO_API_KEY);
+                if (vsmsUrl) builtSms = builtSms.replace(longUrl, vsmsUrl);
+            }
+        }
+        const finalSms = builtSms;
+
         const deductRes = await fetch(`${supabaseUrl}/rest/v1/rpc/add_sms_credits`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}` },
             body: JSON.stringify({ p_biz_id: bData.id, p_amount: -1 })
         });
-        
+
         if (!deductRes.ok) continue;
 
         // 6. VOODOO NETWORK HANDOFF

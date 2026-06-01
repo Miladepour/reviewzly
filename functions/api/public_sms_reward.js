@@ -62,14 +62,30 @@ export async function onRequestPost({ request, env }) {
     // 3. SECURE PAYLOAD PREPARATION
     const destPhone = rpcData.dest;
     const gmbUrl = rpcData.gmb_url;
-    const senderId = rpcData.sender_id || 'Reviewzly';
     const clientName = rpcData.client_name;
+    const businessId = rpcData.business_id || '';
     const customTemplate = rpcData.reward_sms || 'Hi {{client_name}}! Thanks so much for the 5 stars! As promised, here is the official link to post it on Google. It takes 10 seconds and means the world to us! {{google_link}}';
 
     const finalSms = customTemplate
        .replace(/{{client_name}}/g, clientName || 'there')
        .replace(/{{google_link}}/g, gmbUrl || 'https://google.com')
-       .replace(/{{unsubscribe_link}}/g, `https://${new URL(request.url).hostname}/opt-out?b=${rpcData.business_id || ''}`);
+       .replace(/{{unsubscribe_link}}/g, `https://reviewzly.com/opt-out?b=${businessId}`);
+
+    // Resolve the correct sender ID for this business — the RPC returns sender_id
+    // but may not reflect the latest sms_sender_id saved in SMS Hub. Fetch it
+    // directly so the reward SMS uses the same sender as the invite SMS.
+    let senderId = rpcData.sender_id || 'Reviewzly';
+    if (businessId && supabaseUrl && supabaseKey) {
+      const bizRes = await fetch(
+        `${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}&select=sms_sender_id`,
+        { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+      );
+      if (bizRes.ok) {
+        const bizRows = await bizRes.json().catch(() => []);
+        const configured = bizRows?.[0]?.sms_sender_id?.trim();
+        if (configured && configured.length >= 3) senderId = configured;
+      }
+    }
 
     // 4. VOODOO SMS NETWORK HANDOFF
     if (!env.VOODOO_API_KEY) {
