@@ -224,6 +224,44 @@ export async function onRequestPost({ request, env }) {
         }
     }
 
+    // Subscription cancelled (via Billing Portal or Stripe): clear the plan in our DB.
+    if (verifiedEvent.type === 'customer.subscription.deleted') {
+        const sub = verifiedEvent.data.object;
+        const businessId = sub.metadata?.business_id;
+        const customerId = sub.customer;
+        const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
+        const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
+        if (serviceRole && supabaseUrl && (businessId || customerId)) {
+            const filter = businessId ? `id=eq.${businessId}` : `stripe_customer_id=eq.${customerId}`;
+            await fetch(`${supabaseUrl}/rest/v1/businesses?${filter}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}`, 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ active_plan: null, stripe_subscription_id: null })
+            });
+        }
+    }
+
+    // Subscription plan changed via the Billing Portal: sync the new plan name.
+    // (Invites for the new tier are granted by the renewal invoice; this just
+    // keeps the displayed plan accurate.)
+    if (verifiedEvent.type === 'customer.subscription.updated') {
+        const sub = verifiedEvent.data.object;
+        const businessId = sub.metadata?.business_id;
+        const customerId = sub.customer;
+        const planTier = sub.metadata?.plan_tier || null;
+        const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
+        const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
+        // Only sync when active and we can identify the row + plan.
+        if (serviceRole && supabaseUrl && planTier && (businessId || customerId) && sub.status === 'active') {
+            const filter = businessId ? `id=eq.${businessId}` : `stripe_customer_id=eq.${customerId}`;
+            await fetch(`${supabaseUrl}/rest/v1/businesses?${filter}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'apikey': serviceRole, 'Authorization': `Bearer ${serviceRole}`, 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ active_plan: planTier, stripe_subscription_id: sub.id })
+            });
+        }
+    }
+
     // Fast acknowledgement return
     return new Response(JSON.stringify({ received: true }), { status: 200 });
 

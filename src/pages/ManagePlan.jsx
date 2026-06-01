@@ -83,6 +83,25 @@ const ManagePlan = () => {
     }
   };
 
+  const openBillingPortal = async () => {
+    setIsCheckingOut(true);
+    addToast("Opening secure billing portal...", "success");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Authentication missing.");
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Could not open billing portal.");
+      window.location.href = body.url;
+    } catch (err) {
+      addToast(err.message, "error");
+      setIsCheckingOut(false);
+    }
+  };
+
   const executeCancellation = async (e) => {
       e.preventDefault();
       if (!cancelReason) return addToast("Please provide a reason.", "warning");
@@ -129,29 +148,24 @@ const ManagePlan = () => {
           </p>
         </div>
         {activePlan !== 'Free Tier' && activePlan !== 'Cancelled' && activePlan !== 'Loading...' && (
-            <button 
-                onClick={() => setShowCancelModal(true)}
-                style={{ 
-                    padding: '0.4rem 0.8rem', 
-                    borderRadius: '0.4rem', 
-                    backgroundColor: 'transparent', 
-                    color: 'var(--on-surface-variant)', 
-                    border: '1px solid var(--outline-variant)', 
-                    fontWeight: 500, 
+            <button
+                onClick={openBillingPortal}
+                disabled={isCheckingOut}
+                style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    backgroundColor: 'transparent',
+                    color: 'var(--primary)',
+                    border: '1px solid var(--primary)',
+                    fontWeight: 600,
                     fontSize: '0.85rem',
-                    cursor: 'pointer',
+                    cursor: isCheckingOut ? 'wait' : 'pointer',
                     transition: 'all 0.2s ease'
                 }}
-                onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--surface-container-high)';
-                    e.currentTarget.style.color = 'var(--on-surface)';
-                }}
-                onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = 'var(--on-surface-variant)';
-                }}
+                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
+                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--primary)'; }}
             >
-                Cancel Subscription
+                Manage Billing & Cancel
             </button>
         )}
       </div>
