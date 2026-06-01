@@ -20,34 +20,53 @@ export async function onRequestPost({ request, env }) {
     const userEntity = await userValidation.json();
     const businessId = userEntity.id;
 
-    // 2. Fetch the Stripe Subscription ID from Database
-    // Use the user's own auth token — RLS allows them to read their own row.
+    // 2. Fetch the stored subscription + customer id from the DB
     const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
-    const dbRes = await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}&select=stripe_subscription_id`, {
+    const dbRes = await fetch(`${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}&select=stripe_subscription_id,stripe_customer_id`, {
         headers: { apikey: supabaseKey, Authorization: authHeader }
     });
-    
     const dbData = await dbRes.json();
     const subscriptionId = dbData[0]?.stripe_subscription_id;
+    const customerId = dbData[0]?.stripe_customer_id;
 
-    if (!subscriptionId) {
-        return new Response(JSON.stringify({ error: "No active subscription found mathematically linked to this account." }), { status: 400 });
+    if (!subscriptionId && !customerId) {
+        return new Response(JSON.stringify({ error: "No active subscription linked to this account." }), { status: 400 });
     }
 
-    // 3. Cancel the subscription via Stripe's current API (POST .../cancel).
-    // The user's intent is to cancel; if Stripe can't find/act on the sub
-    // (test-vs-live mismatch, already cancelled, missing key), we still clear
-    // the local DB so the user is never stuck. We only log Stripe's reason.
+    // 3. Cancel EVERY active subscription for this customer (not just the stored
+    // id) so duplicate subscriptions from repeated test checkouts are all removed.
+    // The user's intent is to cancel; if Stripe can't act, we still clear the DB.
     let stripeNote = null;
+    let cancelledCount = 0;
     if (env.STRIPE_SECRET_KEY) {
-        const stripeRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}/cancel`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
-        });
-        if (!stripeRes.ok) {
-            const errBody = await stripeRes.json().catch(() => ({}));
-            stripeNote = errBody?.error?.message || `Stripe HTTP ${stripeRes.status}`;
-            console.error('Stripe cancel non-OK:', stripeRes.status, JSON.stringify(errBody));
+        const idsToCancel = new Set();
+        if (subscriptionId) idsToCancel.add(subscriptionId);
+
+        // List all active subscriptions for the customer and add them.
+        if (customerId) {
+            const listRes = await fetch(`https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=active&limit=100`, {
+                headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
+            });
+            if (listRes.ok) {
+                const list = await listRes.json().catch(() => ({}));
+                (list.data || []).forEach(s => idsToCancel.add(s.id));
+            } else {
+                stripeNote = `Could not list subscriptions (HTTP ${listRes.status})`;
+            }
+        }
+
+        for (const id of idsToCancel) {
+            const r = await fetch(`https://api.stripe.com/v1/subscriptions/${id}/cancel`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}` }
+            });
+            if (r.ok) {
+                cancelledCount++;
+            } else {
+                const errBody = await r.json().catch(() => ({}));
+                console.error('Stripe cancel non-OK for', id, r.status, JSON.stringify(errBody));
+                if (!stripeNote) stripeNote = errBody?.error?.message || `Stripe HTTP ${r.status}`;
+            }
         }
     } else {
         stripeNote = 'STRIPE_SECRET_KEY not configured';
@@ -75,7 +94,8 @@ export async function onRequestPost({ request, env }) {
 
     return new Response(JSON.stringify({
         success: true,
-        message: "Subscription cancelled.",
+        message: cancelledCount > 0 ? `Subscription cancelled (${cancelledCount}).` : "Subscription cancelled.",
+        cancelledCount,
         stripeNote
     }), { status: 200, headers: {'Content-Type': 'application/json'} });
 
