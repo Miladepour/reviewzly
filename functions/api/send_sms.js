@@ -1,5 +1,28 @@
 import { normalizeReviewLinksInMessage } from './smsLinkUtils.js';
 
+async function shortenVoodooLink(longUrl, name, apiKey) {
+  try {
+    const res = await fetch('https://api.voodoosms.com/shorturl', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ name, url: longUrl, method: 'simple' }),
+    });
+    const data = await res.json().catch(() => null);
+    if (data?.link) return data.link;
+
+    // Name already exists on this account — fetch the existing short URL
+    const listRes = await fetch('https://api.voodoosms.com/shorturl', {
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+    });
+    const list = await listRes.json().catch(() => null);
+    const existing = list?.data?.find(u => u.name === name);
+    if (existing?.link) return existing.link;
+  } catch {
+    // Fall through — SMS still sends with the original URL
+  }
+  return null;
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     // 1. Verify Authorization Header (Ensure user is logged in)
@@ -22,6 +45,17 @@ export async function onRequestPost({ request, env }) {
     }
 
     const normalizedMsg = normalizeReviewLinksInMessage(msg, shortCode || null);
+
+    // Shorten the reviewzly.com review link via Voodoo's vsms.co shortener so it
+    // passes UK carrier filters. Falls back to the original URL if the API fails.
+    let finalMsg = normalizedMsg;
+    if (shortCode && env.VOODOO_API_KEY) {
+      const longUrl = `https://reviewzly.com/review/${shortCode}`;
+      if (finalMsg.includes(longUrl)) {
+        const vsmsUrl = await shortenVoodooLink(longUrl, shortCode, env.VOODOO_API_KEY);
+        if (vsmsUrl) finalMsg = finalMsg.replace(longUrl, vsmsUrl);
+      }
+    }
 
     // 3. SECURE SUPABASE TRANSACTION
     // Call the RPC function 'execute_sms_transaction' using the user's specific JWT token.
@@ -95,7 +129,7 @@ export async function onRequestPost({ request, env }) {
     const voodooPayload = {
       from: senderId,
       to: dest,
-      msg: normalizedMsg
+      msg: finalMsg
     };
 
     const voodooResponse = await fetch("https://api.voodoosms.com/sendsms", {
