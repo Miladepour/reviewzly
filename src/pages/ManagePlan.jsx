@@ -171,7 +171,8 @@ const ManagePlan = () => {
               name: 'Growth Rocket',
               price: '£90 / mo',
               desc: 'For high-velocity outfits needing aggressive client aggregation.',
-              exclusive: false
+              exclusive: false,
+              recommended: true
             },
             {
               credits: 500,
@@ -181,10 +182,14 @@ const ManagePlan = () => {
               exclusive: true
             }
         ].map(tier => (
-            <div key={tier.credits} className="card" style={{ padding: '2rem', textAlign: 'center', transition: 'transform 0.2s, border-color 0.2s', border: activePlan === tier.name ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer', position: 'relative' }} onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseOut={e => e.currentTarget.style.borderColor = activePlan === tier.name ? 'var(--primary)' : 'transparent'}>
-              {activePlan === tier.name && (
-                  <div style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--primary)', color: 'white', padding: '0.2rem 0.8rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 1 }}>
+            <div key={tier.credits} className="card" style={{ padding: '2rem', textAlign: 'center', transition: 'transform 0.2s, border-color 0.2s', border: activePlan === tier.name ? '2px solid var(--primary)' : (tier.recommended ? '2px solid #f59e0b' : '2px solid transparent'), cursor: 'pointer', position: 'relative' }} onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseOut={e => e.currentTarget.style.borderColor = activePlan === tier.name ? 'var(--primary)' : (tier.recommended ? '#f59e0b' : 'transparent')}>
+              {activePlan === tier.name ? (
+                  <div style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--primary)', color: 'white', padding: '0.2rem 0.8rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 1, whiteSpace: 'nowrap' }}>
                       Current Plan
+                  </div>
+              ) : tier.recommended && (
+                  <div style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#f59e0b', color: 'white', padding: '0.2rem 0.8rem', borderRadius: '1rem', fontSize: '0.75rem', fontWeight: 'bold', zIndex: 1, whiteSpace: 'nowrap' }}>
+                      ⭐ Recommended
                   </div>
               )}
               <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--on-surface)', marginBottom: '0.25rem' }}>{tier.name}</h3>

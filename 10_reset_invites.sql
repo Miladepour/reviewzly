@@ -11,3 +11,7 @@ UPDATE businesses SET sms_credits = 0;
 
 -- Reset the lifetime sent counter too (run migration 09 first so the column exists).
 UPDATE businesses SET invites_sent_total = 0;
+
+-- Clear stale subscription/plan state so accounts show "Free Tier" (no Current Plan
+-- badge) until they subscribe again. Use this to scrub leftover test subscriptions.
+UPDATE businesses SET active_plan = NULL, stripe_subscription_id = NULL;

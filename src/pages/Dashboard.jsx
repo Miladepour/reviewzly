@@ -268,7 +268,7 @@ const Dashboard = () => {
         <h3 className="text-title-lg mb-2">Live Quick Add & Invite</h3>
         <p className="text-body mb-6" style={{ fontSize: '0.85rem' }}>Instantly insert a new record into Postgres and dispatch their pipeline.</p>
         
-        <form onSubmit={handleQuickAdd} className="flex gap-4 flex-wrap items-end" style={{ width: '100%' }}>
+        <form onSubmit={handleQuickAdd} className="flex gap-4 flex-wrap items-end quick-add-form" style={{ width: '100%' }}>
           <div className="flex flex-col gap-2 flex-1" style={{ minWidth: '200px' }}>
             <label className="text-label-sm">Name*</label>
             <input 
@@ -310,8 +310,8 @@ const Dashboard = () => {
               onChange={(e) => setClientDob(e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-2" style={{ flex: '0 1 auto', minWidth: '120px' }}>
-            <label className="text-label-sm" style={{ visibility: 'hidden' }}>Submit</label>
+          <div className="flex flex-col gap-2 quick-add-submit" style={{ flex: '0 1 auto', minWidth: '120px' }}>
+            <label className="text-label-sm submit-spacer" style={{ visibility: 'hidden' }}>Submit</label>
             <button type="submit" className="btn-primary" style={{ width: '100%', padding: '0.85rem' }} disabled={isSending}>
                 {isSending ? 'Sending...' : 'Add Client'}
             </button>

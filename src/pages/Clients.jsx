@@ -541,12 +541,13 @@ Alice Smith, 14449876543`}
                          {isHistoryLoading ? <p className="text-body">Fetching logs from Postgres...</p> : clientHistory.length === 0 ? <p className="text-body text-center" style={{ padding: '2rem' }}>No communication history found.</p> : clientHistory.map(comm => (
                              <div key={comm.id} style={{ display: 'flex', flexDirection: 'column', alignItems: comm.is_outbound ? 'flex-end' : 'flex-start' }}>
                                 <p style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '0.25rem' }}>{new Date(comm.created_at).toLocaleString()}</p>
-                                <div style={{ 
+                                <div style={{
                                     padding: '0.75rem 1rem', borderRadius: '1rem', maxWidth: '85%',
                                     backgroundColor: comm.is_outbound ? 'var(--primary)' : 'var(--surface-container-high)',
-                                    color: comm.is_outbound ? 'white' : 'var(--on-surface)'
+                                    color: comm.is_outbound ? 'white' : 'var(--on-surface)',
+                                    overflowWrap: 'anywhere', wordBreak: 'break-word'
                                 }}>
-                                    <p className="text-body" style={{ fontSize: '0.9rem' }}>{comm.text}</p>
+                                    <p className="text-body" style={{ fontSize: '0.9rem', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{comm.text}</p>
                                 </div>
                              </div>
                          ))}

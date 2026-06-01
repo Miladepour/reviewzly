@@ -239,10 +239,10 @@ const Inbox = () => {
 
   return (
     <>
-      <div className="flex gap-6 w-full" style={{ height: '75vh', minHeight: '550px', maxHeight: '850px' }}>
-        
+      <div className={`flex gap-6 w-full inbox-shell ${activeConvo ? 'has-active' : ''}`} style={{ height: '75vh', minHeight: '550px', maxHeight: '850px' }}>
+
         {/* 1. LEFT PANE: All Chats List */}
-        <div className="card" style={{ width: '300px', height: '100%', overflow: 'hidden', padding: 0, flexShrink: 0, position: 'relative' }}>
+        <div className="card inbox-list" style={{ width: '300px', height: '100%', overflow: 'hidden', padding: 0, flexShrink: 0, position: 'relative' }}>
           
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '245px', padding: '1.5rem', borderBottom: '1px solid var(--outline-variant)', backgroundColor: 'white', zIndex: 10 }}>
             {/* Top Header & Analytics Box */}
@@ -340,7 +340,7 @@ const Inbox = () => {
         </div>
 
         {/* 2. CENTER PANE: Active Chat Engine */}
-        <div className="card" style={{ flex: 1, padding: 0, position: 'relative', height: '100%', overflow: 'hidden' }}>
+        <div className="card inbox-chat" style={{ flex: 1, padding: 0, position: 'relative', height: '100%', overflow: 'hidden' }}>
           
           <div 
             style={{ 
@@ -350,8 +350,17 @@ const Inbox = () => {
             }}
           >
             {activeConvo && (
-              <div 
-                className="flex items-center gap-4 cursor-pointer hover:opacity-80" 
+              <>
+              <button
+                className="inbox-back-btn"
+                onClick={() => setActiveConvo(null)}
+                aria-label="Back to inbox"
+                style={{ display: 'none', background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', marginRight: '0.5rem', flexShrink: 0, color: 'var(--on-surface)' }}
+              >
+                ‹
+              </button>
+              <div
+                className="flex items-center gap-4 cursor-pointer hover:opacity-80"
                 onClick={() => setIsProfileModalOpen(true)}
                 style={{ flex: 1, minWidth: 0, paddingRight: '20px' }}
                 title="Click to view full client profile & automated campaign history"
@@ -364,8 +373,9 @@ const Inbox = () => {
                   <p className="text-label-sm truncate" style={{ color: 'var(--on-surface-variant)' }}>{activeConvo.phone} • View Context & Logs</p>
                 </div>
               </div>
+              </>
             )}
-            
+
             <button style={{ flexShrink: 0, background: 'none', border: '1px solid var(--outline-variant)', padding: '0.5rem 1rem', borderRadius: '2rem', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>Search Chat</button>
           </div>
 

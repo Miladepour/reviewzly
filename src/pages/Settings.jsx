@@ -110,7 +110,7 @@ const Settings = () => {
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         
         {/* Navigation Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--outline-variant)', backgroundColor: 'var(--surface-container-lowest)' }}>
+        <div className="settings-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--outline-variant)', backgroundColor: 'var(--surface-container-lowest)' }}>
           <button 
             onClick={() => setActiveTab('workspace')}
             style={{ 

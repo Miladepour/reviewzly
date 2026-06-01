@@ -449,6 +449,70 @@ img { max-width: 100%; height: auto; }
   .sentiment-footer > div:last-child {
     text-align: left !important;
   }
+
+  /* --- Dashboard Quick Add: stack fields, button below DOB --- */
+  .quick-add-form > div {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+  }
+  .quick-add-form .submit-spacer {
+    display: none;
+  }
+  .quick-add-submit {
+    width: 100%;
+  }
+
+  /* --- Settings tabs: horizontal scroll instead of overflow --- */
+  .settings-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .settings-tabs button {
+    flex: 0 0 auto !important;
+    padding: 1rem 1.1rem !important;
+    font-size: 0.9rem !important;
+    white-space: nowrap;
+  }
+
+  /* --- SMS Hub: tighter padding, scrollable tables --- */
+  .smshub-page {
+    padding: 1.25rem 1rem !important;
+  }
+  .smshub-title {
+    font-size: 1.5rem !important;
+  }
+  .smshub-cards {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  /* --- Inbox: single-column; show list OR chat, not both --- */
+  .inbox-shell {
+    flex-direction: column;
+    height: 78vh !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    gap: 1rem !important;
+  }
+  /* Override the inline flex:1 so the visible pane fills the shell height
+     instead of collapsing (flex main-size beats height in a column). */
+  .inbox-list,
+  .inbox-chat {
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  /* When a conversation is open, hide the list and show only the chat */
+  .inbox-shell.has-active .inbox-list {
+    display: none;
+  }
+  .inbox-shell:not(.has-active) .inbox-chat {
+    display: none;
+  }
+  .inbox-back-btn {
+    display: block !important;
+  }
 }
 
 /* Grid Layout matching the screenshot accurately */

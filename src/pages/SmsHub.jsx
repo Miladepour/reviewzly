@@ -85,10 +85,10 @@ const SmsHub = () => {
   if (loading) return <div style={{ padding: '2rem' }}>Loading SMS command center...</div>;
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
-      
+    <div className="smshub-page" style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
+
       <div style={{ marginBottom: '2.5rem' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--on-surface)', marginBottom: '0.5rem' }}>
+        <h1 className="smshub-title" style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--on-surface)', marginBottom: '0.5rem' }}>
           💬 SMS Command Center
         </h1>
         <p style={{ color: 'var(--on-surface-variant)' }}>
@@ -96,8 +96,8 @@ const SmsHub = () => {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
-        
+      <div className="smshub-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
+
         {/* Invites Metric Card */}
         <div style={{ padding: '2rem', borderRadius: '1.5rem', backgroundColor: '#e8f5e9', border: '1px solid #c8e6c9', display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#2e7d32', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
