@@ -75,6 +75,8 @@ export async function onRequestPost({ request, env }) {
     formData.append('line_items[0][price_data][unit_amount]', unitAmount.toString());
     formData.append('line_items[0][quantity]', '1');
     formData.append('client_reference_id', businessId);
+    // Show the promo/coupon code field on the Stripe Checkout page.
+    formData.append('allow_promotion_codes', 'true');
 
     // Inject metadata so the webhook can grant invites. Subscriptions carry it on
     // subscription_data; one-time payments carry it on payment_intent_data.
