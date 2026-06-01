@@ -71,19 +71,22 @@ export async function onRequestPost({ request, env }) {
        .replace(/{{google_link}}/g, gmbUrl || 'https://google.com')
        .replace(/{{unsubscribe_link}}/g, `https://reviewzly.com/opt-out?b=${businessId}`);
 
-    // Resolve the correct sender ID for this business — the RPC returns sender_id
-    // but may not reflect the latest sms_sender_id saved in SMS Hub. Fetch it
-    // directly so the reward SMS uses the same sender as the invite SMS.
+    // Resolve the correct sender ID for this business.
+    // The anon key cannot bypass RLS on businesses, so we use the service role
+    // key (same key used by cron_dispatch) which reads any row by ID.
     let senderId = rpcData.sender_id || 'Reviewzly';
-    if (businessId && supabaseUrl && supabaseKey) {
-      const bizRes = await fetch(
-        `${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}&select=sms_sender_id`,
-        { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
-      );
-      if (bizRes.ok) {
-        const bizRows = await bizRes.json().catch(() => []);
-        const configured = bizRows?.[0]?.sms_sender_id?.trim();
-        if (configured && configured.length >= 3) senderId = configured;
+    if (businessId && supabaseUrl) {
+      const serviceRole = env.SUPABASE_SERVICE_ROLE_KEY;
+      if (serviceRole) {
+        const bizRes = await fetch(
+          `${supabaseUrl}/rest/v1/businesses?id=eq.${businessId}&select=sms_sender_id`,
+          { headers: { apikey: serviceRole, Authorization: `Bearer ${serviceRole}` } }
+        );
+        if (bizRes.ok) {
+          const bizRows = await bizRes.json().catch(() => []);
+          const configured = bizRows?.[0]?.sms_sender_id?.trim();
+          if (configured && configured.length >= 3) senderId = configured;
+        }
       }
     }
 
